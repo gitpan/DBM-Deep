@@ -1,0 +1,40 @@
+Revision history for DBM::Deep.
+
+0.8   Feb 8 02:38:22 2004 UTC
+    - Renamed to DBM::Deep for CPAN
+    - Added optimize() method for rekindling unused space
+    - Now returning hybrid tie()/OO object from new()
+    - Basic error handling introduced
+    - Added debug mode for printing errors to STDERR
+    - Added TYPE_HASH and TYPE_ARRAY constants for "type" param
+    - Added clone() method for safe copying of objects
+    - Wrote POD documentation
+    - Added set_pack() function for manipulating LONG_SIZE / LONG_PACK
+    - Added aliases for most tied functions for public use
+    - Now setting binmode() on FileHandle for Win32
+    - Added 45 unit tests
+
+0.7   Jan 4 11:31:50 2003 UTC
+    - Renamed to DeepDB
+    - Changed file signature to DPDB (not compatible with older versions)
+    - Converted array length to packed long instead of sprintf()ed string
+
+0.6   Dec 31 15:12:03 2002 UTC
+    - Some misc optimizations for speed
+
+0.5   Oct 18 08:55:29 2002 UTC
+    - support for force_return_next parameter in traverse_index() method for 
+      ultra-fast combined key search/removal
+
+0.4   Oct 15 20:07:47 2002 UTC
+    - now making sure filehandle is open for all DB calls
+
+0.3   Oct 3 19:04:13 2002 UTC
+    - fixed bug that could cause corrupted data when using locking
+
+0.2   Aug 6 16:37:32 2002 UTC
+    - Removed base index caching, as it can cause problems when two processes 
+      are populating the db at the same time (even with locking)
+
+0.1   Jun 3 08:06:26 2002 UTC
+    - initial release
