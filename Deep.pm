@@ -37,7 +37,7 @@ use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.93";
+$VERSION = "0.94";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -371,6 +371,8 @@ sub add_bucket {
 			
 			if ($internal_ref) {
 				$location = $value->base_offset();
+				seek($self->{root}->{fh}, $tag->{offset} + ($i * $BUCKET_SIZE), 0);
+				$self->{root}->{fh}->print( $md5 . pack($LONG_PACK, $location) );
 			}
 			else {
 				seek($self->{root}->{fh}, $subloc + $SIG_SIZE, 0);
@@ -398,6 +400,12 @@ sub add_bucket {
 			last;
 		}
 	} # i loop
+	
+	##
+	# If this is an internal reference, return now.
+	# No need to write value or plain key
+	##
+	if ($internal_ref) { return $result; }
 	
 	##
 	# If bucket didn't fit into list, split into a new index level
@@ -462,11 +470,7 @@ sub add_bucket {
 		##
 		# Write signature based on content type, set content length and write actual value.
 		##
-		if ($internal_ref) {
-			# skip over value
-			seek($self->{root}->{fh}, $SIG_SIZE + $DATA_LENGTH_SIZE + $INDEX_SIZE, 1);
-		}
-		elsif (isa($value, 'HASH')) {
+		if (isa($value, 'HASH')) {
 			$self->{root}->{fh}->print( $SIG_HASH );
 			$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, $INDEX_SIZE) . chr(0) x $INDEX_SIZE );
 			$content_length = $INDEX_SIZE;
@@ -489,17 +493,8 @@ sub add_bucket {
 		
 		##
 		# Plain key is stored AFTER value, as keys are typically fetched less often.
-		# Only do this if location is EOF -- replacements already have key there
 		##
-		if ($location == $self->{root}->{end} || ($internal_ref && $self->{type} eq $SIG_ARRAY)) {
-			$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
-		}
-		
-		##
-		# If this is an internal reference, return now.
-		# No need to advance end counter or walk hash/array
-		##
-		if ($internal_ref) { return $result; }
+		$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
 		
 		##
 		# If this is a new content area, advance EOF counter

@@ -3,7 +3,7 @@
 ##
 use strict;
 use Test;
-BEGIN { plan tests => 14 }
+BEGIN { plan tests => 15 }
 
 use DBM::Deep;
 
@@ -92,6 +92,26 @@ if ($db->error()) {
 	die "ERROR: " . $db->error();
 }
 ok( $db->get("key1") eq "value222222222222222222222222" );
+
+##
+# Make sure keys are still fetchable after replacing values
+# with smaller ones (bug found by John Cardenas, DBM::Deep 0.93)
+##
+$db->clear();
+$db->put("key1", "long value here");
+$db->put("key2", "longer value here");
+
+$db->put("key1", "short value");
+$db->put("key2", "shorter v");
+
+my $first_key = $db->first_key();
+my $next_key = $db->next_key($first_key);
+
+ok(
+	(($first_key eq "key1") || ($first_key eq "key2")) && 
+	(($next_key eq "key1") || ($next_key eq "key2")) && 
+	($first_key ne $next_key)
+);
 
 ##
 # close, delete file, exit
