@@ -3,7 +3,7 @@
 ##
 use strict;
 use Test;
-BEGIN { plan tests => 13 }
+BEGIN { plan tests => 14 }
 
 use DBM::Deep;
 
@@ -81,6 +81,16 @@ ok( $db->get("key1") eq "value2" );
 
 $db->put("key1", "value222222222222222222222222");
 
+ok( $db->get("key1") eq "value222222222222222222222222" );
+
+##
+# Make sure DB still works after closing / opening
+##
+undef $db;
+$db = new DBM::Deep "test.db";
+if ($db->error()) {
+	die "ERROR: " . $db->error();
+}
 ok( $db->get("key1") eq "value222222222222222222222222" );
 
 ##

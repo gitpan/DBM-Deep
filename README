@@ -49,7 +49,7 @@ SETUP
 
     This opens a new database handle, mapped to the file "foo.db". If this
     file does not exist, it will automatically be created. DB files are
-    opened in "w+" (read/write) mode, and the type of object returned is a
+    opened in "r+" (read/write) mode, and the type of object returned is a
     hash, unless otherwise specified (see OPTIONS below).
 
     You can pass a number of options to the constructor to specify things
@@ -114,7 +114,8 @@ SETUP
     * mode
         File open mode (read-only, read-write, etc.) string passed to Perl's
         FileHandle module. This is an optional parameter, and defaults to
-        "w+" (read/write).
+        "r+" (read/write). Note: If the default (r+) mode is selected, the
+        file will also be auto- created if it doesn't exist.
 
     * type
         This parameter specifies what type of object to create, a hash or
@@ -196,22 +197,25 @@ TIE INTERFACE
 
   ARRAYS
     As with hashes, you can treat any DBM::Deep object like a normal Perl
-    array. This includes "push()", "pop()", "shift()", "unshift()" and
-    "splice()". The object must have first been created using type
-    "DBM::Deep::TYPE_ARRAY", or simply be a child array reference. Examples:
+    array reference. This includes inserting, removing and manipulating
+    elements, "push()", "pop()", "shift()", "unshift()" and "splice()". The
+    object must have first been created using type "DBM::Deep::TYPE_ARRAY",
+    or simply be a child array reference inside a hash. Example:
 
-            my $db = new DBM::Deep "foo.db"; # hash
-            $db->{myarray} = []; # new array ref inside hash
+            my $db = new DBM::Deep(
+                    file => "foo-array.db",
+                    type => DBM::Deep::TYPE_ARRAY
+            );
         
-            $db->{myarray}->[0] = "foo";
-            push @{$db->{myarray}}, "bar", "baz";
-            unshift @{$db->{myarray}}, "bah";
+            $db->[0] = "foo";
+            push @$db, "bar", "baz";
+            unshift @$db, "bah";
         
-            my $last_elem = pop @{$db->{myarray}}; # baz
-            my $first_elem = shift @{$db->{myarray}}; # bah
-            my $second_elem = $db->{myarray}->[1]; # bar
+            my $last_elem = pop @$db; # baz
+            my $first_elem = shift @$db; # bah
+            my $second_elem = $db->[1]; # bar
         
-            my $len = scalar @$db;
+            my $num_elements = scalar @$db;
 
 OO INTERFACE
     In addition to the *tie()* interface, you can also use a standard OO
@@ -473,7 +477,7 @@ FILTERS
   REAL-TIME ENCRYPTION EXAMPLE
     Here is a working example that uses the *Crypt::Blowfish* module to do
     real-time encryption / decryption of keys/values with DBM::Deep Filters.
-    Please visit *http://search.cpan.org/search?module=Crypt::Blowfish* for
+    Please visit <http://search.cpan.org/search?module=Crypt::Blowfish> for
     more on *Crypt::Blowfish*. You'll also need the *Crypt::CBC* module.
 
             use DBM::Deep;
@@ -516,7 +520,7 @@ FILTERS
     Here is a working example that uses the *Compress::Zlib* module to do
     real-time compression / decompression of keys/values with DBM::Deep
     Filters. Please visit
-    *http://search.cpan.org/search?module=Compress::Zlib* for more on
+    <http://search.cpan.org/search?module=Compress::Zlib> for more on
     *Compress::Zlib*.
 
             use DBM::Deep;
@@ -620,7 +624,7 @@ LOW-LEVEL ACCESS
 
 CUSTOM DIGEST ALGORITHM
     DBM::Deep by default uses the *Message Digest 5* (MD5) algorithm for
-    hashing keys. However you can override this, and use another algorith
+    hashing keys. However you can override this, and use another algorithm
     (such as SHA-256) or even write your own. But please note that Deep
     currently expects zero collisions, so your algorithm has to be
     *perfect*, so to speak. Collision detection may be introduced in a later
@@ -656,6 +660,29 @@ CUSTOM DIGEST ALGORITHM
 
     Note: Your returned digest strings must be EXACTLY the number of bytes
     you specify in the "set_digest()" function (in this case 32).
+
+CIRCULAR REFERENCES
+    DBM::Deep has experimental support for circular references. Meaning you
+    can have a nested hash key or array element that points to a parent
+    object. This relationship is stored in the DB file, and is preserved
+    between sessions. Here is an example:
+
+            my $db = new DBM::Deep "foo.db";
+        
+            $db->{foo} = "bar";
+            $db->{circle} = $db; # ref to self
+        
+            print $db->{foo} . "\n"; # prints "foo"
+            print $db->{circle}->{foo} . "\n"; # prints "foo" again
+
+    One catch is, passing the object to a function that recursively walks
+    the object tree (such as *Data::Dumper*) will result in an infinite
+    loop. The other catch is, if you fetch the *key* of a circular reference
+    (i.e. using the "first_key()" or "next_key()" methods), you will get the
+    *target object's key*, not the ref's key. This gets even more
+    interesting with the above example, where the *circle* key points to the
+    base DB object, which technically doesn't have a key. So I made
+    DBM::Deep return "[base]" as the key name in that special case.
 
 CAVEATS / ISSUES / BUGS
     This section describes all the known issues with DBM::Deep. It you have
@@ -767,7 +794,7 @@ PERFORMANCE
     Obviously, DBM::Deep isn't going to be as fast as some C-based DBMs,
     such as the almighty *BerkeleyDB*. But it makes up for it in features
     like true multi-level hash/array support, and cross-platform FTPable
-    files. Even so, DBM::Deep is still pretty speedy, and its speed stays
+    files. Even so, DBM::Deep is still pretty speedy, and the speed stays
     fairly consistent, even with huge databases. Here is some test data:
 
             Adding 1,000,000 keys to new DB file...

@@ -3,7 +3,7 @@
 ##
 use strict;
 use Test;
-BEGIN { plan tests => 2 }
+BEGIN { plan tests => 3 }
 
 use DBM::Deep;
 
@@ -42,6 +42,8 @@ $c->[1]->{e} = 'f';
 undef $c;
 undef $b;
 
+delete $db->{a};
+
 ##
 # take byte count readings before, and after optimize
 ##
@@ -49,8 +51,17 @@ my $before = (stat($db->fh()))[7];
 my $result = $db->optimize();
 my $after = (stat($db->fh()))[7];
 
+if ($db->error()) {
+	die "ERROR: " . $db->error();
+}
+
 ok( $result );
 ok( $after < $before ); # make sure file shrunk
+
+ok(
+	($db->{key1} eq "value1") && 
+	($db->{key2} eq "value2")
+); # make sure content is still there
 
 ##
 # close, delete file, exit

@@ -1,5 +1,12 @@
 Revision history for DBM::Deep.
 
+0.10  (insert date when finished)
+    - Fixed bug where default file mode was CLEARING files (Thanks Rich!)
+    - Added experimental support for circular references
+    - Fixed bugs in shift(), unshift() and splice() where nested objects
+      	in array would be recursively re-stored as basic hashes/arrays
+    - Fixed typos in POD docs
+
 0.9   Feb 10 03:25:48 2004 UTC
     - Added Filters for storing/fetching keys/values
     - Added hook for supplying own hashing algorithm

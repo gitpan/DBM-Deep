@@ -36,7 +36,7 @@ use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.9";
+$VERSION = "0.10";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -142,7 +142,7 @@ sub init {
 			locking => $args->{locking} || undef,
 			volatile => $args->{volatile} || undef,
 			debug => $args->{debug} || undef,
-			mode => $args->{mode} || 'w+',
+			mode => $args->{mode} || 'r+',
 			filter_store_key => $args->{filter_store_key} || undef,
 			filter_store_value => $args->{filter_store_value} || undef,
 			filter_fetch_key => $args->{filter_fetch_key} || undef,
@@ -205,6 +205,11 @@ sub open {
 
 	if (defined($self->{root}->{fh})) { $self->close(); }
 	
+	if (!(-e $self->{root}->{file}) && $self->{root}->{mode} eq 'r+') {
+		my $temp = new FileHandle $self->{root}->{file}, 'w';
+		undef $temp;
+	}
+	
 	$self->{root}->{fh} = new FileHandle $self->{root}->{file}, $self->{root}->{mode};
 	if (defined($self->{root}->{fh})) {
 		binmode $self->{root}->{fh}; # for win32
@@ -222,6 +227,9 @@ sub open {
 			$self->{root}->{fh}->print($SIG_FILE);
 			$self->{root}->{end} = length($SIG_FILE);
 			$self->create_tag($self->{base_offset}, $self->{type}, chr(0) x $INDEX_SIZE);
+			my $plain_key = "[base]";
+			$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
+			$self->{root}->{end} += $DATA_LENGTH_SIZE + length($plain_key);
 			$signature = $SIG_FILE;
 			$self->{root}->{fh}->flush();
 		}
@@ -333,6 +341,7 @@ sub add_bucket {
 	my $keys = $tag->{content};
 	my $location = 0;
 	my $result = 2;
+	my $internal_ref = isa($value, "DBM::Deep");
 	
 	##
 	# Iterate through buckets, seeing if this is a new entry or a replace.
@@ -346,7 +355,9 @@ sub add_bucket {
 			##
 			$result = 2;
 			
-			$location = $self->{root}->{end};
+			if ($internal_ref) { $location = $value->base_offset(); }
+			else { $location = $self->{root}->{end}; }
+			
 			seek($self->{root}->{fh}, $tag->{offset} + ($i * $BUCKET_SIZE), 0);
 			$self->{root}->{fh}->print( $md5 . pack($LONG_PACK, $location) );
 			last;
@@ -357,26 +368,31 @@ sub add_bucket {
 			##
 			$result = 1;
 			
-			seek($self->{root}->{fh}, $subloc + $SIG_SIZE, 0);
-			my $size;
-			$self->{root}->{fh}->read($size, $DATA_LENGTH_SIZE); $size = unpack($DATA_LENGTH_PACK, $size);
-			
-			##
-			# If value is a hash, array, or raw value with equal or less size, we can
-			# reuse the same content area of the database.  Otherwise, we have to create
-			# a new content area at the EOF.
-			##
-			my $actual_length;
-			if (isa($value, 'HASH') || isa($value, 'ARRAY')) { $actual_length = $INDEX_SIZE; }
-			else { $actual_length = length($value); }
-			
-			if ($actual_length <= $size) {
-				$location = $subloc;
+			if ($internal_ref) {
+				$location = $value->base_offset();
 			}
 			else {
-				$location = $self->{root}->{end};
-				seek($self->{root}->{fh}, $tag->{offset} + ($i * $BUCKET_SIZE) + $HASH_SIZE, 0);
-				$self->{root}->{fh}->print( pack($LONG_PACK, $location) );
+				seek($self->{root}->{fh}, $subloc + $SIG_SIZE, 0);
+				my $size;
+				$self->{root}->{fh}->read($size, $DATA_LENGTH_SIZE); $size = unpack($DATA_LENGTH_PACK, $size);
+				
+				##
+				# If value is a hash, array, or raw value with equal or less size, we can
+				# reuse the same content area of the database.  Otherwise, we have to create
+				# a new content area at the EOF.
+				##
+				my $actual_length;
+				if (isa($value, 'HASH') || isa($value, 'ARRAY')) { $actual_length = $INDEX_SIZE; }
+				else { $actual_length = length($value); }
+				
+				if ($actual_length <= $size) {
+					$location = $subloc;
+				}
+				else {
+					$location = $self->{root}->{end};
+					seek($self->{root}->{fh}, $tag->{offset} + ($i * $BUCKET_SIZE) + $HASH_SIZE, 0);
+					$self->{root}->{fh}->print( pack($LONG_PACK, $location) );
+				}
 			}
 			last;
 		}
@@ -392,7 +408,11 @@ sub add_bucket {
 		my $index_tag = $self->create_tag($self->{root}->{end}, $SIG_INDEX, chr(0) x $INDEX_SIZE);
 		my @offsets = ();
 		
-		$keys .= $md5 . pack($LONG_PACK, 0);
+		if ($internal_ref) {
+			$keys .= $md5 . pack($LONG_PACK, $value->base_offset());
+			$location = $value->base_offset();
+		}
+		else { $keys .= $md5 . pack($LONG_PACK, 0); }
 		
 		for (my $i=0; $i<=$MAX_BUCKETS; $i++) {
 			my $key = substr($keys, $i * $BUCKET_SIZE, $HASH_SIZE);
@@ -428,7 +448,7 @@ sub add_bucket {
 			} # key is real
 		} # i loop
 		
-		$location = $self->{root}->{end};
+		$location ||= $self->{root}->{end};
 	} # re-index bucket list
 	
 	##
@@ -441,7 +461,11 @@ sub add_bucket {
 		##
 		# Write signature based on content type, set content length and write actual value.
 		##
-		if (isa($value, 'HASH')) {
+		if ($internal_ref) {
+			# skip over value
+			seek($self->{root}->{fh}, $SIG_SIZE + $DATA_LENGTH_SIZE + $INDEX_SIZE, 1);
+		}
+		elsif (isa($value, 'HASH')) {
 			$self->{root}->{fh}->print( $SIG_HASH );
 			$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, $INDEX_SIZE) . chr(0) x $INDEX_SIZE );
 			$content_length = $INDEX_SIZE;
@@ -464,8 +488,17 @@ sub add_bucket {
 		
 		##
 		# Plain key is stored AFTER value, as keys are typically fetched less often.
+		# Only do this if location is EOF -- replacements already have key there
 		##
-		$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
+		if ($location == $self->{root}->{end} || ($internal_ref && $self->{type} eq $SIG_ARRAY)) {
+			$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
+		}
+		
+		##
+		# If this is an internal reference, return now.
+		# No need to advance end counter or walk hash/array
+		##
+		if ($internal_ref) { return $result; }
 		
 		##
 		# If this is a new content area, advance EOF counter
@@ -489,7 +522,8 @@ sub add_bucket {
 			foreach my $key (keys %{$value}) {
 				$branch->{$key} = $value->{$key};
 			}
-		} elsif (isa($value, 'ARRAY')) {
+		}
+		elsif (isa($value, 'ARRAY')) {
 			my $branch = new DBM::Deep(
 				type => $SIG_ARRAY,
 				base_offset => $location,
@@ -849,14 +883,17 @@ sub optimize {
 	$self->copy_node( $db_temp );
 	undef $db_temp;
 	
+	$self->unlock();
+	$self->close();
+	
 	if (!rename $self->{root}->{file} . '.tmp', $self->{root}->{file}) {
 		unlink $self->{root}->{file} . '.tmp';
 		$self->unlock();
 		return $self->throw_error("Optimize failed: Cannot copy temp file over original: $!");
 	}
 	
-	$self->unlock();
-	$self->close();
+	# $self->unlock();
+	# $self->close();
 	$self->open();
 	
 	return 1;
@@ -917,6 +954,14 @@ sub type {
 	##
 	my $self = tied( %{$_[0]} ) || $_[0];
 	return $self->{type};
+}
+
+sub base_offset {
+	##
+	# Get base_offset of current node ($SIG_HASH or $SIG_ARRAY)
+	##
+	my $self = tied( %{$_[0]} ) || $_[0];
+	return $self->{base_offset};
 }
 
 sub error {
@@ -1561,7 +1606,7 @@ method, which gets you a blessed, tied hash or array reference.
 
 This opens a new database handle, mapped to the file "foo.db".  If this
 file does not exist, it will automatically be created.  DB files are 
-opened in "w+" (read/write) mode, and the type of object returned is a
+opened in "r+" (read/write) mode, and the type of object returned is a
 hash, unless otherwise specified (see L<OPTIONS> below).
 
 
@@ -1632,7 +1677,9 @@ current working directory.  This is a required parameter.
 =item * mode
 
 File open mode (read-only, read-write, etc.) string passed to Perl's FileHandle
-module.  This is an optional parameter, and defaults to "w+" (read/write).
+module.  This is an optional parameter, and defaults to "r+" (read/write).
+B<Note:> If the default (r+) mode is selected, the file will also be auto-
+created if it doesn't exist.
 
 =item * type
 
@@ -1720,23 +1767,26 @@ little memory:
 
 =head2 ARRAYS
 
-As with hashes, you can treat any DBM::Deep object like a normal Perl array.  
-This includes C<push()>, C<pop()>, C<shift()>, C<unshift()> and 
-C<splice()>.  The object must have first been created using type 
-C<DBM::Deep::TYPE_ARRAY>, or simply be a child array reference.  Examples:
+As with hashes, you can treat any DBM::Deep object like a normal Perl array
+reference.  This includes inserting, removing and manipulating elements, 
+C<push()>, C<pop()>, C<shift()>, C<unshift()> and C<splice()>.  The object 
+must have first been created using type C<DBM::Deep::TYPE_ARRAY>, or simply 
+be a child array reference inside a hash.  Example:
 
-	my $db = new DBM::Deep "foo.db"; # hash
-	$db->{myarray} = []; # new array ref inside hash
+	my $db = new DBM::Deep(
+		file => "foo-array.db",
+		type => DBM::Deep::TYPE_ARRAY
+	);
 	
-	$db->{myarray}->[0] = "foo";
-	push @{$db->{myarray}}, "bar", "baz";
-	unshift @{$db->{myarray}}, "bah";
+	$db->[0] = "foo";
+	push @$db, "bar", "baz";
+	unshift @$db, "bah";
 	
-	my $last_elem = pop @{$db->{myarray}}; # baz
-	my $first_elem = shift @{$db->{myarray}}; # bah
-	my $second_elem = $db->{myarray}->[1]; # bar
+	my $last_elem = pop @$db; # baz
+	my $first_elem = shift @$db; # bah
+	my $second_elem = $db->[1]; # bar
 	
-	my $len = scalar @$db;
+	my $num_elements = scalar @$db;
 
 =head1 OO INTERFACE
 
@@ -2027,7 +2077,7 @@ remove a filter, set the function reference to C<undef>:
 
 Here is a working example that uses the I<Crypt::Blowfish> module to 
 do real-time encryption / decryption of keys/values with DBM::Deep Filters.
-Please visit I<http://search.cpan.org/search?module=Crypt::Blowfish> for more 
+Please visit L<http://search.cpan.org/search?module=Crypt::Blowfish> for more 
 on I<Crypt::Blowfish>.  You'll also need the I<Crypt::CBC> module.
 
 	use DBM::Deep;
@@ -2070,7 +2120,7 @@ on I<Crypt::Blowfish>.  You'll also need the I<Crypt::CBC> module.
 
 Here is a working example that uses the I<Compress::Zlib> module to do real-time
 compression / decompression of keys/values with DBM::Deep Filters.
-Please visit I<http://search.cpan.org/search?module=Compress::Zlib> for 
+Please visit L<http://search.cpan.org/search?module=Compress::Zlib> for 
 more on I<Compress::Zlib>.
 
 	use DBM::Deep;
@@ -2179,7 +2229,7 @@ collision), which is then accessible from any child hash or array.
 =head1 CUSTOM DIGEST ALGORITHM
 
 DBM::Deep by default uses the I<Message Digest 5> (MD5) algorithm for hashing
-keys.  However you can override this, and use another algorith (such as SHA-256)
+keys.  However you can override this, and use another algorithm (such as SHA-256)
 or even write your own.  But please note that Deep currently expects zero 
 collisions, so your algorithm has to be I<perfect>, so to speak.
 Collision detection may be introduced in a later version.
@@ -2216,6 +2266,30 @@ L<http://search.cpan.org/search?module=Digest::SHA256> for more.
 
 B<Note:> Your returned digest strings must be B<EXACTLY> the number
 of bytes you specify in the C<set_digest()> function (in this case 32).
+
+=head1 CIRCULAR REFERENCES
+
+DBM::Deep has B<experimental> support for circular references.  Meaning you
+can have a nested hash key or array element that points to a parent object.
+This relationship is stored in the DB file, and is preserved between sessions.
+Here is an example:
+
+	my $db = new DBM::Deep "foo.db";
+	
+	$db->{foo} = "bar";
+	$db->{circle} = $db; # ref to self
+	
+	print $db->{foo} . "\n"; # prints "foo"
+	print $db->{circle}->{foo} . "\n"; # prints "foo" again
+
+One catch is, passing the object to a function that recursively walks the
+object tree (such as I<Data::Dumper>) will result in an infinite loop.  The 
+other catch is, if you fetch the I<key> of a circular reference (i.e. using
+the C<first_key()> or C<next_key()> methods), you will get the I<target
+object's key>, not the ref's key.  This gets even more interesting with the
+above example, where the I<circle> key points to the base DB object, which 
+technically doesn't have a key.  So I made DBM::Deep return "[base]" as the
+key name in that special case.
 
 =head1 CAVEATS / ISSUES / BUGS
 
@@ -2329,7 +2403,7 @@ This section discusses DBM::Deep's speed and memory usage.
 Obviously, DBM::Deep isn't going to be as fast as some C-based DBMs, such as 
 the almighty I<BerkeleyDB>.  But it makes up for it in features like true
 multi-level hash/array support, and cross-platform FTPable files.  Even so,
-DBM::Deep is still pretty speedy, and its speed stays fairly consistent, even
+DBM::Deep is still pretty speedy, and the speed stays fairly consistent, even
 with huge databases.  Here is some test data:
 	
 	Adding 1,000,000 keys to new DB file...
