@@ -17,3 +17,5 @@ t/11largekeys.t
 t/12optimize.t
 t/13clone.t
 t/14setpack.t
+t/15filter.t
+t/16digest.t
