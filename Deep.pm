@@ -30,13 +30,14 @@ package DBM::Deep;
 ##
 
 use strict;
+use Config;
 use FileHandle;
 use Fcntl qw/:flock/;
 use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.92";
+$VERSION = "0.93";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -934,6 +935,17 @@ sub optimize {
 	$self->lock();
 	$self->copy_node( $db_temp );
 	undef $db_temp;
+	
+	if ($Config{'osname'} =~ /win/i) {
+		##
+		# Potential race condition when optmizing on Win32 with locking.
+		# The Windows filesystem requires that the filehandle be closed 
+		# before it is overwritten with rename().  This could be redone
+		# with a soft copy.
+		##
+		$self->unlock();
+		$self->close();
+	}
 	
 	if (!rename $self->{root}->{file} . '.tmp', $self->{root}->{file}) {
 		unlink $self->{root}->{file} . '.tmp';

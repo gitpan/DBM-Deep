@@ -1,6 +1,12 @@
 Revision history for DBM::Deep.
 
-0.92  Feb 12 19:10:22 2004 UTC
+0.93  Feb 15 19:53:17 2004 Pacific
+    - Fixed optmize() on Win32 where orig file couldn't be overwritten unless
+         filehandle was closed first.  This change introduces a potential race
+         condition when using locking and optmize() on Win32, but it can be 
+         fixed in the future using a soft copy instead of Perl's rename().
+
+0.92  Feb 12 19:10:22 2004 Pacific
     - Fixed bug where passing a reference to a different DBM::Deep object
          would still result in an internal reference.
     - Added export() method for recursively extracting hashes/arrays into
@@ -10,26 +16,26 @@ Revision history for DBM::Deep.
     - Fixed bug where optimize() wouldn't work if base level of DB was
          an array instead of a hash.
 
-0.91  Feb 12 02:30:22 2004 UTC
+0.91  Feb 12 02:30:22 2004 Pacific
     - Fixed bug with splice() when length of removed section was 0
     - Updated POD re: circular refs and optimize()
     - Had to jump version numbers to 0.91 because in previous releases
          I used only a single digit after the decimal which was confusing
          the CPAN indexer.
 
-0.10  Feb 11 08:58:35 2004 UTC
+0.10  Feb 11 08:58:35 2004 Pacific
     - Fixed bug where default file mode was CLEARING files (Thanks Rich!)
     - Added experimental support for circular references
     - Fixed bugs in shift(), unshift() and splice() where nested objects
       	in array would be recursively re-stored as basic hashes/arrays
     - Fixed typos in POD docs
 
-0.9   Feb 10 03:25:48 2004 UTC
+0.9   Feb 10 03:25:48 2004 Pacific
     - Added Filters for storing/fetching keys/values
     - Added hook for supplying own hashing algorithm
     - FIxed some typos in POD docs, added new sections
 
-0.8   Feb 8 02:38:22 2004 UTC
+0.8   Feb 8 02:38:22 2004 Pacific
     - Renamed to DBM::Deep for CPAN
     - Added optimize() method for rekindling unused space
     - Now returning hybrid tie()/OO object from new()
