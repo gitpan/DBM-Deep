@@ -3,7 +3,7 @@
 ##
 use strict;
 use Test;
-BEGIN { plan tests => 10 }
+BEGIN { plan tests => 11 }
 
 use DBM::Deep;
 
@@ -108,6 +108,19 @@ ok(
 	($db->[1] eq "middle A") && 
 	($db->[2] eq "middle B") && 
 	($db->[3] eq "elem last")
+);
+
+##
+# splice with length of 0
+##
+$db->splice( 3, 0, "middle C" );
+ok(
+	($db->length() == 5) && 
+	($db->[0] eq "elem first") && 
+	($db->[1] eq "middle A") && 
+	($db->[2] eq "middle B") && 
+	($db->[3] eq "middle C") && 
+	($db->[4] eq "elem last")
 );
 
 ##

@@ -1,6 +1,13 @@
 Revision history for DBM::Deep.
 
-0.10  (insert date when finished)
+0.91  (fill in date when finished)
+    - Fixed bug with splice() when length of removed section was 0
+    - Updated POD re: circular refs and optimize()
+    - Had to jump version numbers to 0.91 because in previous releases
+         I used only a single digit after the decimal which was confusing
+         the CPAN indexer.
+
+0.10  Feb 11 08:58:35 2004 UTC
     - Fixed bug where default file mode was CLEARING files (Thanks Rich!)
     - Added experimental support for circular references
     - Fixed bugs in shift(), unshift() and splice() where nested objects

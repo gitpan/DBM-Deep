@@ -36,7 +36,7 @@ use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.10";
+$VERSION = "0.91";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -1470,7 +1470,9 @@ sub SPLICE {
 	my $offset = shift || 0;
 	if ($offset < 0) { $offset += $length; }
 	
-	my $splice_length = shift || ($length - $offset);
+	my $splice_length;
+	if (scalar @_) { $splice_length = shift; }
+	else { $splice_length = $length - $offset; }
 	if ($splice_length < 0) { $splice_length += ($length - $offset); }
 	
 	##
@@ -2283,13 +2285,14 @@ Here is an example:
 	print $db->{circle}->{foo} . "\n"; # prints "foo" again
 
 One catch is, passing the object to a function that recursively walks the
-object tree (such as I<Data::Dumper>) will result in an infinite loop.  The 
-other catch is, if you fetch the I<key> of a circular reference (i.e. using
-the C<first_key()> or C<next_key()> methods), you will get the I<target
-object's key>, not the ref's key.  This gets even more interesting with the
-above example, where the I<circle> key points to the base DB object, which 
-technically doesn't have a key.  So I made DBM::Deep return "[base]" as the
-key name in that special case.
+object tree (such as I<Data::Dumper> or even the built-in C<optimize()>
+method) will result in an infinite loop.  The other catch is, if you fetch 
+the I<key> of a circular reference (i.e. using the C<first_key()> or 
+C<next_key()> methods), you will get the I<target object's key>, not the 
+ref's key.  This gets even more interesting with the above example, where 
+the I<circle> key points to the base DB object, which technically doesn't 
+have a key.  So I made DBM::Deep return "[base]" as the key name in that 
+special case.
 
 =head1 CAVEATS / ISSUES / BUGS
 
