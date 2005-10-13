@@ -3,7 +3,7 @@
 ##
 use strict;
 use Test;
-BEGIN { plan tests => 3 }
+BEGIN { plan tests => 2 }
 
 use DBM::Deep;
 
@@ -12,16 +12,11 @@ use DBM::Deep;
 ##
 unlink "test.db";
 my $db = new DBM::Deep "test.db";
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
-
-ok( !$db->error() );
 
 ##
 # cause an error
 ##
-$db->push("foo"); # ERROR -- array-only method
+eval { $db->push("foo"); }; # ERROR -- array-only method
 
 ok( $db->error() );
 

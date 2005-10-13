@@ -148,14 +148,23 @@ SETUP
         different locking system or write your own. Pass any true value to
         enable. This is an optional parameter, and defaults to 0 (disabled).
 
+    * autobless
+        If *autobless* mode is enabled, DBM::Deep will preserve blessed
+        hashes, and restore them when fetched. This is an experimental
+        feature, and does have side-effects. Basically, when hashes are
+        re-blessed into their original classes, they are no longer blessed
+        into the DBM::Deep class! So you won't be able to call any DBM::Deep
+        methods on them. You have been warned. This is an optional
+        parameter, and defaults to 0 (disabled).
+
     * filter_*
         See FILTERS below.
 
     * debug
-        Currently, *debug* mode does nothing more than print all errors to
-        STDERR. However, it may be expanded in the future to log more
-        debugging information. Pass any true value to enable. This is an
-        optional paramter, and defaults to 0 (disabled).
+        Setting *debug* mode will make all errors non-fatal, dump them out
+        to STDERR, and continue on. This is for debugging purposes only, and
+        probably not what you want. This is an optional parameter, and
+        defaults to 0 (disabled).
 
 TIE INTERFACE
     With DBM::Deep you can access your databases using Perl's standard
@@ -195,6 +204,18 @@ TIE INTERFACE
             while (my ($key, $value) = each %$db) {
                     print "$key: $value\n";
             }
+
+    Please note that when using "each()", you should always pass a direct
+    hash reference, not a lookup. Meaning, you should never do this:
+
+            # NEVER DO THIS
+            while (my ($key, $value) = each %{$db->{foo}}) { # BAD
+
+    This causes an infinite loop, because for each iteration, Perl is
+    calling FETCH() on the $db handle, resulting in a "new" hash for foo
+    every time, so it effectively keeps returning the first key over and
+    over again. Instead, assign a temporary variable to "$db-"{foo}>, then
+    pass that to each().
 
   ARRAYS
     As with hashes, you can treat any DBM::Deep object like a normal Perl
@@ -465,8 +486,8 @@ IMPORTING/EXPORTING
 
   EXPORTING
     Calling the "export()" method on an existing DBM::Deep object will
-    return a reference to a new in-memory copy of the datbase. The export is
-    done recursively, so all nested hashes/arrays are all exported to
+    return a reference to a new in-memory copy of the database. The export
+    is done recursively, so all nested hashes/arrays are all exported to
     standard Perl objects. Here is an example:
 
             my $db = new DBM::Deep "foo.db";
@@ -620,13 +641,13 @@ FILTERS
     actually numerical index numbers, and are not filtered.
 
 ERROR HANDLING
-    Most DBM::Deep methods return a true value for success, and a false
-    value for failure. Upon failure, the actual error message is stored in
-    an internal scalar, which can be fetched by calling the "error()"
-    method.
+    Most DBM::Deep methods return a true value for success, and call die()
+    on failure. You can wrap calls in an eval block to catch the die. Also,
+    the actual error message is stored in an internal scalar, which can be
+    fetched by calling the "error()" method.
 
-            my $db = new DBM::Deep "foo.db"; # hash
-            $db->push("foo"); # ILLEGAL -- array only func
+            my $db = new DBM::Deep "foo.db"; # create hash
+            eval { $db->push("foo"); }; # ILLEGAL -- push is array-only call
         
             print $db->error(); # prints error message
 
@@ -634,18 +655,9 @@ ERROR HANDLING
 
             $db->clear_error();
 
-    It is always a good idea to check the error state upon object creation.
-    Deep immediately tries to "open()" the FileHandle, so if you don't have
-    sufficient permissions or some other filesystem error occurs, you should
-    act accordingly before trying to access the database.
-
-            my $db = new DBM::Deep("foo.db");
-            if ($db->error()) {
-                    die "ERROR: " . $db->error();
-            }
-
     If you set the "debug" option to true when creating your DBM::Deep
-    object, all errors are printed to STDERR.
+    object, all errors are considered NON-FATAL, and dumped to STDERR. This
+    is only for debugging purposes.
 
 LARGEFILE SUPPORT
     If you have a 64-bit system, and your Perl is compiled with both
@@ -667,7 +679,8 @@ LARGEFILE SUPPORT
     to change back to 32-bit mode.
 
     Note: I have not personally tested files > 2 GB -- all my systems have
-    only a 32-bit Perl. If anyone tries this, please tell me what happens!
+    only a 32-bit Perl. However, I have received user reports that this does
+    indeed work!
 
 LOW-LEVEL ACCESS
     If you require low-level access to the underlying FileHandle that Deep
@@ -783,52 +796,24 @@ CAVEATS / ISSUES / BUGS
     and return undef.
 
   AUTOVIVIFICATION
-    Unfortunately, autovivification doesn't always work. This appears to be
-    a bug in Perl's tie() system, as *Jakob Schmidt* encountered the very
-    same issue with his *DWH_FIle* module (see
+    Unfortunately, autovivification doesn't work with tied hashes. This
+    appears to be a bug in Perl's tie() system, as *Jakob Schmidt*
+    encountered the very same issue with his *DWH_FIle* module (see
     <http://search.cpan.org/search?module=DWH_File>), and it is also
     mentioned in the BUGS section for the *MLDBM* module <see
-    <http://search.cpan.org/search?module=MLDBM>). Basically, your milage
-    may vary when issuing statements like this:
+    <http://search.cpan.org/search?module=MLDBM>). Basically, on a new db
+    file, this does not work:
 
-            $db->{a} = { b => [ 1, 2, { c => [ 'd', { e => 'f' } ] } ] };
+            $db->{foo}->{bar} = "hello";
 
-    This causes 3 hashes and 2 arrays to be created in the database all in
-    one fell swoop, and all nested within each other. Perl *may* choke on
-    this, and fail to create one or more of the nested structures. This
-    doesn't appear to be a bug in DBM::Deep, but I am still investigating
-    it. The problem is intermittent. For safety, I recommend creating nested
-    structures using a series of commands instead of just one, which will
-    always work:
+    Since "foo" doesn't exist, you cannot add "bar" to it. You end up with
+    "foo" being an empty hash. Try this instead, which works fine:
 
-            $db->{a} = {};
-            $db->{a}->{b} = [];
-        
-            my $b = $db->{a}->{b};
-            $b->[0] = 1;
-            $b->[1] = 2;
-            $b->[2] = {};
-            $b->[2]->{c} = [];
-        
-            my $c = $b->[2]->{c};
-            $c->[0] = 'd';
-            $c->[1] = {};
-            $c->[1]->{e} = 'f';
-        
-            undef $c;
-            undef $b;
+            $db->{foo} = { bar => "hello" };
 
-    Also, you can just create the whole structure in memory using a
-    temporary variable, then use DBM::Deep's "import()" method to import the
-    entire thing into the database:
-
-            my $temp = {
-                    a => { b => [ 1, 2, { c => [ 'd', { e => 'f' } ] } ] }
-            };
-            $db->import( $temp );
-
-    Note: I have yet to recreate this bug with Perl 5.8.1. Perhaps the issue
-    has been resolved? Will update as events warrant.
+    As of Perl 5.8.7, this bug still exists. I have walked very carefully
+    through the execution path, and Perl indeed passes an empty hash to the
+    STORE() method. Probably a bug in Perl.
 
   FILE CORRUPTION
     The current level of error handling in Deep is minimal. Files *are*
@@ -1061,7 +1046,7 @@ SEE ALSO
     nfs(5), Digest::SHA256(3), Crypt::Blowfish(3), Compress::Zlib(3)
 
 LICENSE
-    Copyright (c) 2002-2004 Joseph Huckaby. All Rights Reserved. This is
+    Copyright (c) 2002-2005 Joseph Huckaby. All Rights Reserved. This is
     free software, you may use it and distribute it under the same terms as
     Perl itself.
 

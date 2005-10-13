@@ -1,5 +1,12 @@
 Revision history for DBM::Deep.
 
+0.95  Jan  2 13:58:00 2004 Pacific
+    - Added optional autobless flag to preserve and restore blessed hashes
+    - Fixed bug where 0 could not be fetched using get_next_key
+    - Fixed bug where tie() constructor didn't accept a hash ref for args
+    - optimize() now preserves user/group/permissions
+    - Errors are now FATAL (meaning it calls die()), unless you set debug flag
+
 0.94  Apr 13 19:00:26 2004 Pacific
     - Fixed bug reported by John Cardenas (corruption at key level when
          replace of less data was done on bucket)

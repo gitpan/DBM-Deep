@@ -24,7 +24,7 @@ package DBM::Deep;
 #	print "This module " . $db->{my_complex}->[1]->{perl} . "!\n";
 #
 # Copyright:
-#	(c) 2002-2004 Joseph Huckaby.  All Rights Reserved.
+#	(c) 2002-2005 Joseph Huckaby.  All Rights Reserved.
 #	This program is free software; you can redistribute it and/or 
 #	modify it under the same terms as Perl itself.
 ##
@@ -37,7 +37,7 @@ use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.94";
+$VERSION = "0.95";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -148,6 +148,7 @@ sub init {
 			filter_store_value => $args->{filter_store_value} || undef,
 			filter_fetch_key => $args->{filter_fetch_key} || undef,
 			filter_fetch_value => $args->{filter_fetch_value} || undef,
+			autobless => $args->{autobless} || undef,
 			locked => 0
 		}
 	};
@@ -167,6 +168,7 @@ sub TIEHASH {
 	my $class = shift;
 	my $args;
 	if (scalar(@_) > 1) { $args = {@_}; }
+	elsif (ref($_[0])) { $args = $_[0]; }
 	else { $args = { file => shift }; }
 	
 	return $class->init($args);
@@ -179,6 +181,7 @@ sub TIEARRAY {
 	my $class = shift;
 	my $args;
 	if (scalar(@_) > 1) { $args = {@_}; }
+	elsif (ref($_[0])) { $args = $_[0]; }
 	else { $args = { file => shift }; }
 	
 	return $class->init($args);
@@ -255,7 +258,7 @@ sub open {
 		}
 	}
 	else {
-		$self->throw_error("Cannot open file: $!");
+		$self->throw_error("Cannot open file: " . $self->{root}->{file} . ": $!");
 	}
 	
 	return undef;
@@ -497,6 +500,29 @@ sub add_bucket {
 		$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($plain_key)) . $plain_key );
 		
 		##
+		# If value is blessed, preserve class name
+		##
+		my $value_ref = ref($value);
+		if ($self->{root}->{autobless} && $value_ref) {
+			if ($value_ref !~ /^(HASH|ARRAY|DBM::Deep)$/) {
+				##
+				# Blessed ref -- will restore later
+				##
+				$self->{root}->{fh}->print( chr(1) );
+				$self->{root}->{fh}->print( pack($DATA_LENGTH_PACK, length($value_ref)) . $value_ref );
+				$content_length += 1;
+				$content_length += $DATA_LENGTH_SIZE + length($value_ref);
+			}
+			else {
+				##
+				# Simple unblessed ref -- no restore needed
+				##
+				$self->{root}->{fh}->print( chr(0) );
+				$content_length += 1;
+			}
+		}
+		
+		##
 		# If this is a new content area, advance EOF counter
 		##
 		if ($location == $self->{root}->{end}) {
@@ -571,11 +597,37 @@ sub get_bucket_value {
 			# If value is a hash or array, return new DeepDB object with correct offset
 			##
 			if (($signature eq $SIG_HASH) || ($signature eq $SIG_ARRAY)) {
-				return new DBM::Deep(
+				my $obj = new DBM::Deep(
 					type => $signature,
 					base_offset => $subloc,
 					root => $self->{root}
 				);
+				
+				if ($self->{root}->{autobless}) {
+					##
+					# Skip over value and plain key to see if object needs
+					# to be re-blessed
+					##
+					seek($self->{root}->{fh}, $DATA_LENGTH_SIZE + $INDEX_SIZE, 1);
+					
+					my $size;
+					$self->{root}->{fh}->read($size, $DATA_LENGTH_SIZE); $size = unpack($DATA_LENGTH_PACK, $size);
+					if ($size) { seek($self->{root}->{fh}, $size, 1); }
+					
+					my $bless_bit;
+					$self->{root}->{fh}->read($bless_bit, 1);
+					if (ord($bless_bit)) {
+						##
+						# Yes, object needs to be re-blessed
+						##
+						my $class_name;
+						$self->{root}->{fh}->read($size, $DATA_LENGTH_SIZE); $size = unpack($DATA_LENGTH_PACK, $size);
+						if ($size) { $self->{root}->{fh}->read($class_name, $size); }
+						if ($class_name) { $obj = bless( $obj, $class_name ); }
+					}
+				}
+				
+				return $obj;
 			}
 			
 			##
@@ -711,7 +763,7 @@ sub traverse_index {
 			my $subloc = unpack($LONG_PACK, substr($content, $index * $LONG_SIZE, $LONG_SIZE) );
 			if ($subloc) {
 				my $result = $self->traverse_index( $subloc, $ch + 1, $force_return_next );
-				if ($result) { return $result; }
+				if (defined($result)) { return $result; }
 			}
 		} # index loop
 		
@@ -931,6 +983,16 @@ sub optimize {
 	$self->copy_node( $db_temp );
 	undef $db_temp;
 	
+	##
+	# Attempt to copy user, group and permissions over to new file
+	##
+	my @stats = stat($self->{root}->{fh});
+	my $perms = $stats[2] & 07777;
+	my $uid = $stats[4];
+	my $gid = $stats[5];
+	chown( $uid, $gid, $self->{root}->{file} . '.tmp' );
+	chmod( $perms, $self->{root}->{file} . '.tmp' );
+	
 	if ($Config{'osname'} =~ /win/i) {
 		##
 		# Potential race condition when optmizing on Win32 with locking.
@@ -1042,6 +1104,7 @@ sub throw_error {
 	$self->{root}->{error} = $error_text;
 	
 	if ($self->{root}->{debug}) { warn "DBM::Deep: $error_text\n"; }
+	else { die "DBM::Deep: $error_text\n"; }
 	
 	return undef;
 }
@@ -1772,16 +1835,24 @@ is useful if you want to use a different locking system or write your own.  Pass
 any true value to enable.  This is an optional parameter, and defaults to 0 
 (disabled).
 
+=item * autobless
+
+If I<autobless> mode is enabled, DBM::Deep will preserve blessed hashes, and
+restore them when fetched.  This is an B<experimental> feature, and does have
+side-effects.  Basically, when hashes are re-blessed into their original
+classes, they are no longer blessed into the DBM::Deep class!  So you won't be
+able to call any DBM::Deep methods on them.  You have been warned.
+This is an optional parameter, and defaults to 0 (disabled).
+
 =item * filter_*
 
 See L<FILTERS> below.
 
 =item * debug
 
-Currently, I<debug> mode does nothing more than print all errors to STDERR.
-However, it may be expanded in the future to log more debugging information.
-Pass any true value to enable.  This is an optional paramter, and defaults to 0
-(disabled).
+Setting I<debug> mode will make all errors non-fatal, dump them out to
+STDERR, and continue on.  This is for debugging purposes only, and probably
+not what you want.  This is an optional parameter, and defaults to 0 (disabled).
 
 =back
 
@@ -1823,6 +1894,17 @@ little memory:
 	while (my ($key, $value) = each %$db) {
 		print "$key: $value\n";
 	}
+
+Please note that when using C<each()>, you should always pass a direct
+hash reference, not a lookup.  Meaning, you should B<never> do this:
+
+	# NEVER DO THIS
+	while (my ($key, $value) = each %{$db->{foo}}) { # BAD
+
+This causes an infinite loop, because for each iteration, Perl is calling
+FETCH() on the $db handle, resulting in a "new" hash for foo every time, so
+it effectively keeps returning the first key over and over again. Instead, 
+assign a temporary variable to C<$db->{foo}>, then pass that to each().
 
 =head2 ARRAYS
 
@@ -2119,7 +2201,7 @@ These will cause an infinite loop when importing.
 =head2 EXPORTING
 
 Calling the C<export()> method on an existing DBM::Deep object will return 
-a reference to a new in-memory copy of the datbase.  The export is done 
+a reference to a new in-memory copy of the database.  The export is done 
 recursively, so all nested hashes/arrays are all exported to standard Perl
 objects.  Here is an example:
 
@@ -2283,12 +2365,13 @@ actually numerical index numbers, and are not filtered.
 
 =head1 ERROR HANDLING
 
-Most DBM::Deep methods return a true value for success, and a false value for
-failure.  Upon failure, the actual error message is stored in an internal 
-scalar, which can be fetched by calling the C<error()> method.
+Most DBM::Deep methods return a true value for success, and call die() on
+failure.  You can wrap calls in an eval block to catch the die.  Also, the 
+actual error message is stored in an internal scalar, which can be fetched by 
+calling the C<error()> method.
 
-	my $db = new DBM::Deep "foo.db"; # hash
-	$db->push("foo"); # ILLEGAL -- array only func
+	my $db = new DBM::Deep "foo.db"; # create hash
+	eval { $db->push("foo"); }; # ILLEGAL -- push is array-only call
 	
 	print $db->error(); # prints error message
 
@@ -2296,18 +2379,9 @@ You can then call C<clear_error()> to clear the current error state.
 
 	$db->clear_error();
 
-It is always a good idea to check the error state upon object creation.  Deep
-immediately tries to C<open()> the FileHandle, so if you don't have sufficient
-permissions or some other filesystem error occurs, you should act accordingly
-before trying to access the database.
-
-	my $db = new DBM::Deep("foo.db");
-	if ($db->error()) {
-		die "ERROR: " . $db->error();
-	}
-
 If you set the C<debug> option to true when creating your DBM::Deep object,
-all errors are printed to STDERR.
+all errors are considered NON-FATAL, and dumped to STDERR.  This is only
+for debugging purposes.
 
 =head1 LARGEFILE SUPPORT
 
@@ -2333,7 +2407,8 @@ back to 32-bit mode.
 
 
 B<Note:> I have not personally tested files > 2 GB -- all my systems have 
-only a 32-bit Perl.  If anyone tries this, please tell me what happens!
+only a 32-bit Perl.  However, I have received user reports that this does 
+indeed work!
 
 =head1 LOW-LEVEL ACCESS
 
@@ -2453,50 +2528,23 @@ counter, and if it is greater than 1, optimize() will abort and return undef.
 
 =head2 AUTOVIVIFICATION
 
-Unfortunately, autovivification doesn't always work.  This appears to be a bug
-in Perl's tie() system, as I<Jakob Schmidt> encountered the very same issue with
-his I<DWH_FIle> module (see L<http://search.cpan.org/search?module=DWH_File>),
+Unfortunately, autovivification doesn't work with tied hashes.  This appears to 
+be a bug in Perl's tie() system, as I<Jakob Schmidt> encountered the very same 
+issue with his I<DWH_FIle> module (see L<http://search.cpan.org/search?module=DWH_File>),
 and it is also mentioned in the BUGS section for the I<MLDBM> module <see 
-L<http://search.cpan.org/search?module=MLDBM>).  Basically, your milage may 
-vary when issuing statements like this:
+L<http://search.cpan.org/search?module=MLDBM>).  Basically, on a new db file,
+this does not work:
 
-	$db->{a} = { b => [ 1, 2, { c => [ 'd', { e => 'f' } ] } ] };
+	$db->{foo}->{bar} = "hello";
 
-This causes 3 hashes and 2 arrays to be created in the database all in one
-fell swoop, and all nested within each other.  Perl I<may> choke on this, and 
-fail to create one or more of the nested structures.  This doesn't appear 
-to be a bug in DBM::Deep, but I am still investigating it.  The problem is
-intermittent.  For safety, I recommend creating nested structures using a 
-series of commands instead of just one, which will always work:
+Since "foo" doesn't exist, you cannot add "bar" to it.  You end up with "foo"
+being an empty hash.  Try this instead, which works fine:
 
-	$db->{a} = {};
-	$db->{a}->{b} = [];
-	
-	my $b = $db->{a}->{b};
-	$b->[0] = 1;
-	$b->[1] = 2;
-	$b->[2] = {};
-	$b->[2]->{c} = [];
-	
-	my $c = $b->[2]->{c};
-	$c->[0] = 'd';
-	$c->[1] = {};
-	$c->[1]->{e} = 'f';
-	
-	undef $c;
-	undef $b;
+	$db->{foo} = { bar => "hello" };
 
-Also, you can just create the whole structure in memory using a temporary 
-variable, then use DBM::Deep's C<import()> method to import the entire
-thing into the database:
-	
-	my $temp = {
-		a => { b => [ 1, 2, { c => [ 'd', { e => 'f' } ] } ] }
-	};
-	$db->import( $temp );
-
-B<Note:> I have yet to recreate this bug with Perl 5.8.1.  Perhaps the issue
-has been resolved?  Will update as events warrant.
+As of Perl 5.8.7, this bug still exists.  I have walked very carefully through
+the execution path, and Perl indeed passes an empty hash to the STORE() method.
+Probably a bug in Perl.
 
 =head2 FILE CORRUPTION
 
@@ -2750,7 +2798,7 @@ Digest::SHA256(3), Crypt::Blowfish(3), Compress::Zlib(3)
 
 =head1 LICENSE
 
-Copyright (c) 2002-2004 Joseph Huckaby.  All Rights Reserved.
+Copyright (c) 2002-2005 Joseph Huckaby.  All Rights Reserved.
 This is free software, you may use it and distribute it under the
 same terms as Perl itself.
 
