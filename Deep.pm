@@ -37,7 +37,7 @@ use Digest::MD5 qw/md5/;
 use UNIVERSAL qw/isa/;
 use vars qw/$VERSION/;
 
-$VERSION = "0.95";
+$VERSION = "0.96";
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -136,7 +136,7 @@ sub init {
 		base_offset => $args->{base_offset} || length($SIG_FILE),
 		root => $args->{root} || {
 			file => $args->{file} || undef,
-			fh => undef,
+			fh => $args->{fh} || undef,
 			end => 0,
 			links => 0,
 			autoflush => $args->{autoflush} || undef,
@@ -1853,6 +1853,15 @@ See L<FILTERS> below.
 Setting I<debug> mode will make all errors non-fatal, dump them out to
 STDERR, and continue on.  This is for debugging purposes only, and probably
 not what you want.  This is an optional parameter, and defaults to 0 (disabled).
+
+=item * fh
+
+Instead of passing a file path, you can instead pass a handle to an pre-opened
+filehandle.  Note: Beware of using the magick *DATA handle, as this actually 
+contains your entire Perl script, as well as the data following the __DATA__
+marker.  This will not work, because DBM::Deep uses absolute seek()s into the
+file.  Instead, consider reading *DATA into an IO::Scalar handle, then passing
+in that.
 
 =back
 

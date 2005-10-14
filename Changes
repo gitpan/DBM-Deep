@@ -1,6 +1,10 @@
 Revision history for DBM::Deep.
 
-0.95  Jan  2 13:58:00 2004 Pacific
+0.96  Oct 14 09:55:00 2005 Pacific
+    - Fixed build (OS X hidden files killed it)
+    - You can now pass in an optional filehandle to the constructor
+
+0.95  Oct 12 13:58:00 2005 Pacific
     - Added optional autobless flag to preserve and restore blessed hashes
     - Fixed bug where 0 could not be fetched using get_next_key
     - Fixed bug where tie() constructor didn't accept a hash ref for args
