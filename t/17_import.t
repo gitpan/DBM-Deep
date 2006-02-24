@@ -2,16 +2,12 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test;
-BEGIN { plan tests => 1 }
+use Test::More tests => 2;
 
-use DBM::Deep;
+use_ok( 'DBM::Deep' );
 
-##
-# basic file open
-##
-unlink "test.db";
-my $db = new DBM::Deep "test.db";
+unlink "t/test.db";
+my $db = DBM::Deep->new( "t/test.db" );
 if ($db->error()) {
 	die "ERROR: " . $db->error();
 }
@@ -51,10 +47,3 @@ ok(
 		($db->{hash1}->{subkey2} eq "subvalue2")
 	)
 );
-
-##
-# close, delete file, exit
-##
-undef $db;
-unlink "test.db";
-exit(0);

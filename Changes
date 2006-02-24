@@ -1,5 +1,42 @@
 Revision history for DBM::Deep.
 
+0.97  ??? ?? ??:??:?? 2006 Pacific
+    - Reorganization of distribution to a more standard layout
+    - Migration to Module::Build with EU::MM backwards compatibility
+    - Migration of all tests to use Test::More and Test::Exception
+    - Added Devel::Cover report to DBM::Deep POD
+      - Test coverage improved to 89.6% (and climbing)
+    - The following methods have been renamed to reflect their private nature:
+        - init() is now _init()
+        - open() is now _open()
+        - close() is now _close()
+        - load_tag() is now _load_tag()
+        - index_lookup() is now _index_lookup()
+        - add_bucket() is now _add_bucket()
+        - get_bucket_value() is now _get_bucket_value()
+        - delete_bucket() is now _delete_bucket()
+        - bucket_exists() is now _bucket_exists()
+        - find_bucket_list() is now _find_bucket_list()
+        - traverse_index() is now _traverse_index()
+        - get_next_key() is now _get_next_key()
+        - copy_node() is now _copy_node()
+        - throw_error() is now _throw_error()
+    - The various tied classes have been broken out. This means that testing
+        "ref( $obj ) eq 'DBM::Deep'" will now fail. The correct test is
+        "eval { $obj->isa( 'DBM::Deep' ) }".
+    - The various methods like push and delete now have the same return values as
+      the standard builtins.
+    - TIEARRAY and TIEHASH now check their parameters more thoroughly
+    - Negative indices for arrays works as expected, including throwing the appropriate
+      errors.
+    - RT #16877 is fixed (DBM::Deep broken with Perl 5.9.3+).
+    - RT #14893 is fixed (tie() and new() use different parameter lists).
+    - A bug with optimize and threading is fixed.
+    - autobless has received some attention, resulting in a number of bugs fixed.
+    - Removed mode option as it just caused confusion.
+    - Removed volatile option as it is pretty useless (use locking instead)
+    - Locking now implicitly enables autoflush
+
 0.96  Oct 14 09:55:00 2005 Pacific
     - Fixed build (OS X hidden files killed it)
     - You can now pass in an optional filehandle to the constructor

@@ -12,9 +12,9 @@ my $salt = 38473827;
 ##
 # basic file open
 ##
-unlink "test.db";
+unlink "t/test.db";
 my $db = new DBM::Deep(
-	file => "test.db"
+	file => "t/test.db"
 );
 if ($db->error()) {
 	die "ERROR: " . $db->error();
@@ -96,7 +96,7 @@ ok( $db->get("key1") eq "value222222222222222222222222" );
 # close, delete file, exit
 ##
 undef $db;
-unlink "test.db";
+unlink "t/test.db";
 exit(0);
 
 sub my_digest {

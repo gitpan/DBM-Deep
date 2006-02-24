@@ -2,16 +2,12 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test;
-BEGIN { plan tests => 1 }
+use Test::More tests => 2;
 
-use DBM::Deep;
+use_ok( 'DBM::Deep' );
 
-##
-# basic file open
-##
-unlink "test.db";
-my $db = new DBM::Deep "test.db";
+unlink "t/test.db";
+my $db = DBM::Deep->new( "t/test.db" );
 if ($db->error()) {
 	die "ERROR: " . $db->error();
 }
@@ -38,7 +34,7 @@ my $struct = $db->export();
 # close, delete file
 ##
 undef $db;
-unlink "test.db";
+unlink "t/test.db";
 
 ##
 # Make sure everything is here, outside DB
@@ -56,5 +52,3 @@ ok(
 		($struct->{hash1}->{subkey2} eq "subvalue2")
 	)
 );
-
-exit(0);

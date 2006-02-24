@@ -2,17 +2,13 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test;
-BEGIN { plan tests => 1 }
+use Test::More tests => 2;
 
-use DBM::Deep;
+use_ok( 'DBM::Deep' );
 
-##
-# basic file open
-##
-unlink "test.db";
-my $db = new DBM::Deep(
-	file => "test.db",
+unlink "t/test.db";
+my $db = DBM::Deep->new(
+	file => "t/test.db",
 	autoflush => 1
 );
 if ($db->error()) {
@@ -28,9 +24,9 @@ undef $db;
 ##
 DBM::Deep::set_pack(2, 'S');
 
-unlink "test.db";
-$db = new DBM::Deep(
-	file => "test.db",
+unlink "t/test.db";
+$db = DBM::Deep->new(
+	file => "t/test.db",
 	autoflush => 1
 );
 if ($db->error()) {
@@ -42,10 +38,3 @@ my $after = (stat($db->fh()))[7];
 undef $db;
 
 ok( $after < $before );
-
-##
-# close, delete file, exit
-##
-# undef $db;
-unlink "test.db";
-exit(0);
