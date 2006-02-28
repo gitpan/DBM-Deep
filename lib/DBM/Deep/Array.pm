@@ -13,7 +13,7 @@ use base 'DBM::Deep';
 use Scalar::Util ();
 
 sub _get_self {
-    eval { tied( @{$_[0]} ) } || $_[0]
+    eval { local $SIG{'__DIE__'}; tied( @{$_[0]} ) } || $_[0]
 }
 
 sub TIEARRAY {
@@ -155,12 +155,12 @@ sub FETCHSIZE {
 
     $self->lock( $self->LOCK_SH );
 
-	my $SAVE_FILTER = $self->root->{filter_fetch_value};
-	$self->root->{filter_fetch_value} = undef;
+	my $SAVE_FILTER = $self->_root->{filter_fetch_value};
+	$self->_root->{filter_fetch_value} = undef;
 	
 	my $packed_size = $self->FETCH('length');
 	
-	$self->root->{filter_fetch_value} = $SAVE_FILTER;
+	$self->_root->{filter_fetch_value} = $SAVE_FILTER;
 	
     $self->unlock;
 
@@ -180,12 +180,12 @@ sub STORESIZE {
 	
     $self->lock( $self->LOCK_EX );
 
-	my $SAVE_FILTER = $self->root->{filter_store_value};
-	$self->root->{filter_store_value} = undef;
+	my $SAVE_FILTER = $self->_root->{filter_store_value};
+	$self->_root->{filter_store_value} = undef;
 	
 	my $result = $self->STORE('length', pack($DBM::Deep::LONG_PACK, $new_length));
 	
-	$self->root->{filter_store_value} = $SAVE_FILTER;
+	$self->_root->{filter_store_value} = $SAVE_FILTER;
 	
     $self->unlock;
 
@@ -310,7 +310,8 @@ sub SPLICE {
 	##
 	# Calculate offset and length of splice
 	##
-	my $offset = shift || 0;
+	my $offset = shift;
+    $offset = 0 unless defined $offset;
 	if ($offset < 0) { $offset += $length; }
 	
 	my $splice_length;

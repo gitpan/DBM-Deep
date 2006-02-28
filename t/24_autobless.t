@@ -7,100 +7,141 @@ use strict;
     sub foo { 'foo' };
 }
 
-use Test::More tests => 29;
+use Test::More tests => 54;
 
 use_ok( 'DBM::Deep' );
 
 unlink 't/test.db';
-my $db = DBM::Deep->new(
-    file     => "t/test.db",
-    autobless => 1,
-);
-if ($db->error()) {
-	die "ERROR: " . $db->error();
+{
+    my $db = DBM::Deep->new(
+        file     => "t/test.db",
+        autobless => 1,
+    );
+    if ($db->error()) {
+        die "ERROR: " . $db->error();
+    }
+
+    my $obj = bless {
+        a => 1,
+        b => [ 1 .. 3 ],
+    }, 'Foo';
+
+    $db->{blessed} = $obj;
+
+    my $obj2 = bless [
+        { a => 'foo' },
+        2,
+    ], 'Foo';
+    $db->{blessed2} = $obj2;
+
+    $db->{unblessed} = {};
+    $db->{unblessed}{a} = 1;
+    $db->{unblessed}{b} = [];
+    $db->{unblessed}{b}[0] = 1;
+    $db->{unblessed}{b}[1] = 2;
+    $db->{unblessed}{b}[2] = 3;
 }
 
-my $obj = bless {
-    a => 1,
-    b => [ 1 .. 3 ],
-}, 'Foo';
+{
+    my $db = DBM::Deep->new(
+        file     => 't/test.db',
+        autobless => 1,
+    );
+    if ($db->error()) {
+        die "ERROR: " . $db->error();
+    }
 
-$db->{blessed} = $obj;
+    my $obj = $db->{blessed};
+    isa_ok( $obj, 'Foo' );
+    can_ok( $obj, 'export', 'foo' );
+    ok( !$obj->can( 'STORE' ), "... but it cannot 'STORE'" );
 
-$db->{unblessed} = {};
-$db->{unblessed}{a} = 1;
-$db->{unblessed}{b} = [];
-$db->{unblessed}{b}[0] = 1;
-$db->{unblessed}{b}[1] = 2;
-$db->{unblessed}{b}[2] = 3;
+    is( $obj->{a}, 1 );
+    is( $obj->{b}[0], 1 );
+    is( $obj->{b}[1], 2 );
+    is( $obj->{b}[2], 3 );
 
-undef $db;
+    my $obj2 = $db->{blessed2};
+    isa_ok( $obj, 'Foo' );
+    can_ok( $obj, 'export', 'foo' );
+    ok( !$obj->can( 'STORE' ), "... but it cannot 'STORE'" );
 
-my $db2 = DBM::Deep->new(
-    file     => 't/test.db',
-    autobless => 1,
-);
-if ($db2->error()) {
-	die "ERROR: " . $db2->error();
+    is( $obj2->[0]{a}, 'foo' );
+    is( $obj2->[1], '2' );
+
+    is( $db->{unblessed}{a}, 1 );
+    is( $db->{unblessed}{b}[0], 1 );
+    is( $db->{unblessed}{b}[1], 2 );
+    is( $db->{unblessed}{b}[2], 3 );
+
+    $obj->{c} = 'new';
+    is( $db->{blessed}{c}, 'new' );
 }
 
-my $obj2 = $db2->{blessed};
-isa_ok( $obj2, 'Foo' );
-can_ok( $obj2, 'export', 'foo' );
-ok( !$obj2->can( 'STORE' ), "... but it cannot 'STORE'" );
+{
+    my $db = DBM::Deep->new(
+        file     => 't/test.db',
+        autobless => 1,
+    );
+    is( $db->{blessed}{c}, 'new' );
 
-is( $obj2->{a}, 1 );
-is( $obj2->{b}[0], 1 );
-is( $obj2->{b}[1], 2 );
-is( $obj2->{b}[2], 3 );
+    my $structure = $db->export();
+    
+    my $obj = $structure->{blessed};
+    isa_ok( $obj, 'Foo' );
+    can_ok( $obj, 'export', 'foo' );
+    ok( !$obj->can( 'STORE' ), "... but it cannot 'STORE'" );
 
-is( $db2->{unblessed}{a}, 1 );
-is( $db2->{unblessed}{b}[0], 1 );
-is( $db2->{unblessed}{b}[1], 2 );
-is( $db2->{unblessed}{b}[2], 3 );
+    is( $obj->{a}, 1 );
+    is( $obj->{b}[0], 1 );
+    is( $obj->{b}[1], 2 );
+    is( $obj->{b}[2], 3 );
 
-$obj2->{c} = 'new';
-is( $db2->{blessed}{c}, 'new' );
+    my $obj2 = $structure->{blessed2};
+    isa_ok( $obj, 'Foo' );
+    can_ok( $obj, 'export', 'foo' );
+    ok( !$obj->can( 'STORE' ), "... but it cannot 'STORE'" );
 
-undef $db2;
+    is( $obj2->[0]{a}, 'foo' );
+    is( $obj2->[1], '2' );
 
-$db2 = DBM::Deep->new(
-    file     => 't/test.db',
-    autobless => 1,
-);
-is( $db2->{blessed}{c}, 'new' );
-
-TODO: {
-    todo_skip "_copy_node() doesn't work with autobless", 1;
-    my $structure = $db2->export();
-    ok( 1 );
+    is( $structure->{unblessed}{a}, 1 );
+    is( $structure->{unblessed}{b}[0], 1 );
+    is( $structure->{unblessed}{b}[1], 2 );
+    is( $structure->{unblessed}{b}[2], 3 );
 }
 
-my $db3 = DBM::Deep->new(
-    file     => 't/test.db',
-);
-if ($db3->error()) {
-	die "ERROR: " . $db3->error();
+{
+    my $db = DBM::Deep->new(
+        file     => 't/test.db',
+    );
+    if ($db->error()) {
+        die "ERROR: " . $db->error();
+    }
+
+    my $obj = $db->{blessed};
+    isa_ok( $obj, 'DBM::Deep' );
+    can_ok( $obj, 'export', 'STORE' );
+    ok( !$obj->can( 'foo' ), "... but it cannot 'foo'" );
+
+    is( $obj->{a}, 1 );
+    is( $obj->{b}[0], 1 );
+    is( $obj->{b}[1], 2 );
+    is( $obj->{b}[2], 3 );
+
+    my $obj2 = $db->{blessed2};
+    isa_ok( $obj2, 'DBM::Deep' );
+    can_ok( $obj2, 'export', 'STORE' );
+    ok( !$obj2->can( 'foo' ), "... but it cannot 'foo'" );
+
+    is( $obj2->[0]{a}, 'foo' );
+    is( $obj2->[1], '2' );
+
+    is( $db->{unblessed}{a}, 1 );
+    is( $db->{unblessed}{b}[0], 1 );
+    is( $db->{unblessed}{b}[1], 2 );
+    is( $db->{unblessed}{b}[2], 3 );
 }
-
-my $obj3 = $db3->{blessed};
-isa_ok( $obj3, 'DBM::Deep' );
-can_ok( $obj3, 'export', 'STORE' );
-ok( !$obj3->can( 'foo' ), "... but it cannot 'foo'" );
-
-is( $obj3->{a}, 1 );
-is( $obj3->{b}[0], 1 );
-is( $obj3->{b}[1], 2 );
-is( $obj3->{b}[2], 3 );
-
-is( $db3->{unblessed}{a}, 1 );
-is( $db3->{unblessed}{b}[0], 1 );
-is( $db3->{unblessed}{b}[1], 2 );
-is( $db3->{unblessed}{b}[2], 3 );
-
-undef $db;
-undef $db2;
-undef $db3;
 
 {
     unlink 't/test2.db';
