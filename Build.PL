@@ -17,7 +17,8 @@ my $build = Module::Build->new(
     },
     create_makefile_pl => 'traditional',
     add_to_cleanup => [
-        'META.yml', '*.bak', '*.gz', 'Makefile.PL', 't/test*.db', 'cover_db'
+        'META.yml', '*.bak', '*.gz', 'Makefile.PL', 't/test*.db', 'cover_db',
+        't/*.txt',
     ],
     test_files => 't/??_*.t',
 );

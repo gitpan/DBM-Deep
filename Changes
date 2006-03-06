@@ -1,5 +1,10 @@
 Revision history for DBM::Deep.
 
+0.981_01 Mar 06 11:00:00 2006 Pacific
+    - Added experimental auditlog support. This will only be released as a
+      developer released in the 0.x line because of the hackish nature of the
+      change.
+
 0.981 Mar 06 11:00:00 2006 Pacific
     - (RT#17947) - Fixed test that was failing on older Perls
 

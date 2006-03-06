@@ -36,7 +36,7 @@ use Digest::MD5 ();
 use Scalar::Util ();
 
 use vars qw( $VERSION );
-$VERSION = q(0.981);
+$VERSION = q(0.981_01);
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -163,7 +163,9 @@ sub _init {
 
     # These are the defaults to be optionally overridden below
     my $self = bless {
-        type => TYPE_HASH,
+        type        => TYPE_HASH,
+        parent      => undef,
+        parent_key  => undef,
         base_offset => length(SIG_FILE),
     }, $class;
 
@@ -245,6 +247,12 @@ sub _open {
     # File is empty -- write signature and master index
     ##
     if (!$bytes_read) {
+        if ( my $afh = $self->_root->{audit_fh} ) {
+            flock( $afh, LOCK_EX );
+            print( $afh "# Database created on " . localtime(time) . $/ );
+            flock( $afh, LOCK_UN );
+        }
+
         seek($fh, 0 + $self->_root->{file_offset}, SEEK_SET);
         print( $fh SIG_FILE);
         $self->_create_tag($self->_base_offset, $self->_type, chr(0) x $INDEX_SIZE);
@@ -373,7 +381,7 @@ sub _add_bucket {
 	# plain (undigested) key and value.
 	##
 	my $self = shift;
-	my ($tag, $md5, $plain_key, $value) = @_;
+	my ($tag, $md5, $plain_key, $value, $orig_key) = @_;
 	my $keys = $tag->{content};
 	my $location = 0;
 	my $result = 2;
@@ -589,6 +597,8 @@ sub _add_bucket {
 				type => TYPE_HASH,
 				base_offset => $location,
 				root => $root,
+                parent => $self,
+                parent_key => $orig_key,
 			);
 			foreach my $key (keys %{$value}) {
                 $branch->STORE( $key, $value->{$key} );
@@ -599,6 +609,8 @@ sub _add_bucket {
 				type => TYPE_ARRAY,
 				base_offset => $location,
 				root => $root,
+                parent => $self,
+                parent_key => $orig_key,
 			);
 			my $index = 0;
 			foreach my $element (@{$value}) {
@@ -618,7 +630,7 @@ sub _get_bucket_value {
 	# Fetch single value given tag and MD5 digested key.
 	##
 	my $self = shift;
-	my ($tag, $md5) = @_;
+	my ($tag, $md5, $plain_key) = @_;
 	my $keys = $tag->{content};
 
     my $fh = $self->_fh;
@@ -634,8 +646,7 @@ sub _get_bucket_value {
 		if (!$subloc) {
 			##
 			# Hit end of list, no match
-			##
-			return;
+			## return;
 		}
 
         if ( $md5 ne $key ) {
@@ -656,7 +667,9 @@ sub _get_bucket_value {
             my $obj = DBM::Deep->new(
                 type => $signature,
                 base_offset => $subloc,
-                root => $self->_root
+                root => $self->_root,
+                parent => $self,
+                parent_key => $plain_key,
             );
             
             if ($self->_root->{autobless}) {
@@ -1141,7 +1154,9 @@ sub clone {
 	return DBM::Deep->new(
 		type => $self->_type,
 		base_offset => $self->_base_offset,
-		root => $self->_root
+		root => $self->_root,
+        parent => $self->{parent},
+        parent_key => $self->{parent_key},
 	);
 }
 
@@ -1305,6 +1320,18 @@ sub _is_writable {
 # tie() methods (hashes and arrays)
 ##
 
+sub _find_parent {
+    my $self = shift;
+    if ( $self->{parent} ) {
+        my $base = $self->{parent}->_find_parent();
+        if ( $self->{parent}->_type eq TYPE_HASH ) {
+            return $base . "\{$self->{parent_key}\}";
+        }
+        return $base . "\[$self->{parent_key}\]";
+    }
+    return '$db->';
+}
+
 sub STORE {
 	##
 	# Store single hash key/value or array element in database.
@@ -1317,6 +1344,35 @@ sub STORE {
 	my $value = ($self->_root->{filter_store_value} && !ref($_[2]))
         ? $self->_root->{filter_store_value}->($_[2])
         : $_[2];
+
+    if ( my $afh = $self->_root->{audit_fh} ) {
+        unless ( $self->_type eq SIG_ARRAY && $key eq 'length' ) {
+            my $lhs = $self->_find_parent;
+            if ( $self->_type eq SIG_HASH ) {
+                $lhs .= "\{$key\}";
+            }
+            else {
+                $lhs .= "\[$_[3]\]";
+            }
+
+            my $rhs;
+
+            my $r = Scalar::Util::reftype( $_[2] ) || '';
+            if ( $r eq 'HASH' ) {
+                $rhs = '{}';
+            }
+            elsif ( $r eq 'ARRAY' ) {
+                $rhs = '[]';
+            }
+            else {
+                $rhs = "'$_[2]'";
+            }
+
+            flock( $afh, LOCK_EX );
+            print( $afh "$lhs = $rhs; # " . localtime(time) . "\n" );
+            flock( $afh, LOCK_UN );
+        }
+    }
 	
 	my $md5 = $DIGEST_FUNC->($key);
 	
@@ -1376,8 +1432,8 @@ sub STORE {
 	##
 	# Add key/value to bucket list
 	##
-	my $result = $self->_add_bucket( $tag, $md5, $key, $value );
-	
+	my $result = $self->_add_bucket( $tag, $md5, $key, $value, $_[3] || $key );
+
 	$self->unlock();
 
 	return $result;
@@ -1411,7 +1467,7 @@ sub FETCH {
 	##
 	# Get value from bucket list
 	##
-	my $result = $self->_get_bucket_value( $tag, $md5 );
+	my $result = $self->_get_bucket_value( $tag, $md5, $key );
 	
 	$self->unlock();
 	
@@ -1427,9 +1483,25 @@ sub DELETE {
 	##
 	# Delete single key/value pair or element given plain key or array index
 	##
-    my $self = $_[0]->_get_self;
-	my $key = $_[1];
+    my $self = shift->_get_self;
+	my ($key, $orig_key) = @_;
 	
+    if ( my $afh = $self->_root->{audit_fh} ) {
+        unless ( $self->_type eq SIG_ARRAY && $key eq 'length' ) {
+            my $lhs = $self->_find_parent;
+            if ( $self->_type eq SIG_HASH ) {
+                $lhs .= "\{$key\}";
+            }
+            else {
+                $lhs .= "\[$_[3]\]";
+            }
+
+            flock( $afh, LOCK_EX );
+            print( $afh "delete $lhs; # " . localtime(time) . "\n" );
+            flock( $afh, LOCK_UN );
+        }
+    }
+
 	my $md5 = $DIGEST_FUNC->($key);
 
 	##
@@ -1451,7 +1523,7 @@ sub DELETE {
 	##
 	# Delete bucket
 	##
-    my $value = $self->_get_bucket_value( $tag, $md5 );
+    my $value = $self->_get_bucket_value( $tag, $md5, $key );
 	if ($value && !ref($value) && $self->_root->{filter_fetch_value}) {
         $value = $self->_root->{filter_fetch_value}->($value);
     }
@@ -1513,6 +1585,22 @@ sub CLEAR {
 	##
     my $self = $_[0]->_get_self;
 
+    if ( my $afh = $self->_root->{audit_fh} ) {
+        my $lhs = $self->_find_parent;
+
+        my $rhs;
+        if ( $self->_type eq SIG_HASH ) {
+            $rhs = '{}';
+        }
+        elsif ( $self->_type eq SIG_ARRAY ) {
+            $rhs = '[]';
+        }
+
+        flock( $afh, LOCK_EX );
+        print( $afh "$lhs = $rhs; # " . localtime(time) . "\n" );
+        flock( $afh, LOCK_UN );
+    }
+
 	##
 	# Make sure file is open
 	##
@@ -1551,6 +1639,8 @@ sub clear { (shift)->CLEAR( @_ ) }
 
 package DBM::Deep::_::Root;
 
+use Fcntl;
+
 sub new {
     my $class = shift;
     my ($args) = @_;
@@ -1574,6 +1664,20 @@ sub new {
 
     if ( $self->{fh} && !$self->{file_offset} ) {
         $self->{file_offset} = tell( $self->{fh} );
+    }
+
+    if ( $self->{audit_file} && !$self->{audit_fh} ) {
+        my $flags = O_WRONLY | O_APPEND | O_CREAT;
+
+        my $fh;
+        sysopen( $fh, $self->{audit_file}, $flags )
+            or die "Cannot open audit file: $!";
+
+        my $old = select $fh;
+        $|=1;
+        select $old;
+
+        $self->{audit_fh} = $fh;
     }
 
     return $self;
@@ -1781,6 +1885,28 @@ not what you want.  This is an optional parameter, and defaults to 0 (disabled).
 
 B<NOTE>: This parameter is considered deprecated and should not be used anymore.
 
+=item * audit_file / audit_fh
+
+If you set either of these, an auditlog will be written to. If you set
+audit_file, audit_fh will be set to the open() on the audit_file.
+
+The auditing information will look something like:
+
+  $db->{foo} = 'floober';
+  $db->{bar} = {};
+  $db->{bar}{a} = [];
+  $db->{bar}{a}[0] = '5';
+
+The idea is that if your DB file is corrupted, you can recover it by doing
+something like:
+
+  my $db = DBM::Deep->new( $new_filename );
+  do( $audit_file );
+
+It is your responsability to make sure that the same auditlog is opened with the
+same DB file every time the DB file is opened. This will change when 1.00 is
+released.
+  
 =back
 
 =head1 TIE INTERFACE
