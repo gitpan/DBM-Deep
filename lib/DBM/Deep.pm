@@ -36,7 +36,7 @@ use Digest::MD5 ();
 use Scalar::Util ();
 
 use vars qw( $VERSION );
-$VERSION = q(0.981_01);
+$VERSION = q(0.981_02);
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -1366,6 +1366,10 @@ sub STORE {
             }
             else {
                 $rhs = "'$_[2]'";
+            }
+
+            if ( my $c = Scalar::Util::blessed( $_[2] ) ) {
+                $rhs = "bless $rhs, '$c'";
             }
 
             flock( $afh, LOCK_EX );
