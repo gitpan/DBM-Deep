@@ -1,12 +1,9 @@
 Revision history for DBM::Deep.
 
-0.981_02 Mar 06 19:00:00 2006 Pacific
-    - Added support for blessed objects in the auditlog
-
-0.981_01 Mar 06 14:00:00 2006 Pacific
-    - Added experimental auditlog support. This will only be released as a
-      developer released in the 0.x line because of the hackish nature of the
-      change.
+0.982 Mar 08 11:00:00 2006 Pacific
+    - Fixed smoketests that were failing on Win32
+    - Added restriction for Perl 5.6.0 or higher.
+      - Digest::MD5 and Sub::Uplevel (dep of Test::Exception) require 5.6+
 
 0.981 Mar 06 11:00:00 2006 Pacific
     - (RT#17947) - Fixed test that was failing on older Perls

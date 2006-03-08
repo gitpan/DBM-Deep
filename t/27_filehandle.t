@@ -33,7 +33,11 @@ ok(($db = DBM::Deep->new(fh => *FILE, file_offset => $offset)), "open db in file
 ok($db->{hash}->{foo}->[1] eq 'b', "and get at stuff in the database");
 
 ok( !$db->{foo}, "foo doesn't exist yet" );
-throws_ok {
-    $db->{foo} = 1;
-} qr/Cannot write to a readonly filehandle/, "Can't write to a read-only filehandle";
+
+SKIP: {
+    skip "F_GETFL tests skipped on Win32", 1 if $^O eq 'MSWin32';
+    throws_ok {
+        $db->{foo} = 1;
+    } qr/Cannot write to a readonly filehandle/, "Can't write to a read-only filehandle";
+}
 ok( !$db->{foo}, "foo doesn't exist yet" );

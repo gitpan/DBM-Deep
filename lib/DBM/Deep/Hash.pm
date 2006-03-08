@@ -36,7 +36,7 @@ sub STORE {
         : $_[0];
     my $value = $_[1];
 
-    return $self->SUPER::STORE( $key, $value, $_[0] );
+    return $self->SUPER::STORE( $key, $value );
 }
 
 sub EXISTS {
@@ -54,7 +54,7 @@ sub DELETE {
         ? $self->_root->{filter_store_key}->($_[0])
         : $_[0];
 
-    return $self->SUPER::DELETE( $key, $_[0] );
+    return $self->SUPER::DELETE( $key );
 }
 
 sub FIRSTKEY {

@@ -1,19 +1,20 @@
 ---
 name: DBM-Deep
-version: 0.981_02
+version: 0.982
 author: ~
 abstract: A pure perl multi-level hash/array DBM
 license: perl
 requires:
   Digest::MD5: 1.00
   Scalar::Util: 1.14
+  perl: 5.6.0
 build_requires:
   Test::Exception: 0.21
   Test::More: 0.47
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 0.981_02
+    version: 0.982
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
     version: ~

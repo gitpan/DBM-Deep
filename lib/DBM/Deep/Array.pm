@@ -76,7 +76,7 @@ sub STORE {
         $key = pack($DBM::Deep::LONG_PACK, $key);
     }
 
-    my $rv = $self->SUPER::STORE( $key, $value, $orig );
+    my $rv = $self->SUPER::STORE( $key, $value );
 
     if ( $numeric_idx && $rv == 2 ) {
         $size = $self->FETCHSIZE unless defined $size;
@@ -136,7 +136,7 @@ sub DELETE {
         $key = pack($DBM::Deep::LONG_PACK, $key);
     }
 
-    my $rv = $self->SUPER::DELETE( $key, $unpacked_key );
+    my $rv = $self->SUPER::DELETE( $key );
 
 	if ($rv && $unpacked_key == $size - 1) {
 		$self->STORESIZE( $unpacked_key );
