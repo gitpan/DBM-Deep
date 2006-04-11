@@ -2,7 +2,7 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 29;
+use Test::More tests => 33;
 use Test::Exception;
 
 use_ok( 'DBM::Deep' );
@@ -120,3 +120,18 @@ ok(
 	($first_key ne $next_key)
     ,"keys() still works if you replace long values with shorter ones"
 );
+
+my %hash = ( a => 1 );
+$db->{hash} = \%hash;
+$hash{b} = 2;
+cmp_ok( $db->{hash}{b}, '==', 2 );
+
+# Test autovivification
+
+$db->{unknown}{bar} = 1;
+ok( $db->{unknown} );
+cmp_ok( $db->{unknown}{bar}, '==', 1 );
+
+$db->clear;
+$db->{foo}->{bar} = 'baz';
+is( $db->{foo}{bar}, 'baz' );

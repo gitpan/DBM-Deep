@@ -36,7 +36,7 @@ use Digest::MD5 ();
 use Scalar::Util ();
 
 use vars qw( $VERSION );
-$VERSION = q(0.982);
+$VERSION = q(0.983);
 
 ##
 # Set to 4 and 'N' for 32-bit offset tags (default).  Theoretical limit of 4 GB per file.
@@ -90,7 +90,6 @@ set_digest();
 sub SIG_FILE   () { 'DPDB' }
 sub SIG_HASH   () { 'H' }
 sub SIG_ARRAY  () { 'A' }
-sub SIG_SCALAR () { 'S' }
 sub SIG_NULL   () { 'N' }
 sub SIG_DATA   () { 'D' }
 sub SIG_INDEX  () { 'I' }
@@ -206,6 +205,8 @@ sub _open {
 	##
     my $self = $_[0]->_get_self;
 
+    local($/,$\);
+
 	if (defined($self->_fh)) { $self->_close(); }
 	
     my $flags = O_RDWR | O_CREAT | O_BINARY;
@@ -295,6 +296,8 @@ sub _create_tag {
 	##
 	my ($self, $offset, $sig, $content) = @_;
 	my $size = length($content);
+
+    local($/,$\);
 	
     my $fh = $self->_fh;
 
@@ -319,6 +322,8 @@ sub _load_tag {
 	##
 	my $self = shift;
 	my $offset = shift;
+
+    local($/,$\);
 	
     my $fh = $self->_fh;
 
@@ -363,6 +368,21 @@ sub _add_bucket {
 	my $keys = $tag->{content};
 	my $location = 0;
 	my $result = 2;
+
+    local($/,$\);
+
+    # This verifies that only supported values will be stored.
+    {
+        my $r = Scalar::Util::reftype( $value );
+        last if !defined $r;
+
+        last if $r eq 'HASH';
+        last if $r eq 'ARRAY';
+
+        $self->_throw_error(
+            "Storage of variables of type '$r' is not supported."
+        );
+    }
 
     my $root = $self->_root;
 
@@ -430,7 +450,7 @@ sub _add_bucket {
             }
             else { $actual_length = length($value); }
             
-            if ($actual_length <= $size) {
+            if ($actual_length <= ($size || 0)) {
                 $location = $subloc;
             }
             else {
@@ -512,11 +532,17 @@ sub _add_bucket {
 		##
         my $r = Scalar::Util::reftype($value) || '';
 		if ($r eq 'HASH') {
+            if ( !$internal_ref && tied %{$value} ) {
+                return $self->_throw_error("Cannot store a tied value");
+            }
 			print( $fh TYPE_HASH );
 			print( $fh pack($DATA_LENGTH_PACK, $INDEX_SIZE) . chr(0) x $INDEX_SIZE );
 			$content_length = $INDEX_SIZE;
 		}
 		elsif ($r eq 'ARRAY') {
+            if ( !$internal_ref && tied @{$value} ) {
+                return $self->_throw_error("Cannot store a tied value");
+            }
 			print( $fh TYPE_ARRAY );
 			print( $fh pack($DATA_LENGTH_PACK, $INDEX_SIZE) . chr(0) x $INDEX_SIZE );
 			$content_length = $INDEX_SIZE;
@@ -571,26 +597,22 @@ sub _add_bucket {
 		# pass each key or element to it.
 		##
 		if ($r eq 'HASH') {
-			my $branch = DBM::Deep->new(
+            my %x = %$value;
+            tie %$value, 'DBM::Deep', {
 				type => TYPE_HASH,
 				base_offset => $location,
 				root => $root,
-			);
-			foreach my $key (keys %{$value}) {
-                $branch->STORE( $key, $value->{$key} );
-			}
+			};
+            %$value = %x;
 		}
 		elsif ($r eq 'ARRAY') {
-			my $branch = DBM::Deep->new(
+            my @x = @$value;
+            tie @$value, 'DBM::Deep', {
 				type => TYPE_ARRAY,
 				base_offset => $location,
 				root => $root,
-			);
-			my $index = 0;
-			foreach my $element (@{$value}) {
-                $branch->STORE( $index, $element );
-				$index++;
-			}
+			};
+            @$value = @x;
 		}
 		
 		return $result;
@@ -606,6 +628,8 @@ sub _get_bucket_value {
 	my $self = shift;
 	my ($tag, $md5) = @_;
 	my $keys = $tag->{content};
+
+    local($/,$\);
 
     my $fh = $self->_fh;
 
@@ -699,6 +723,8 @@ sub _delete_bucket {
 	my $self = shift;
 	my ($tag, $md5) = @_;
 	my $keys = $tag->{content};
+
+    local($/,$\);
 
     my $fh = $self->_fh;
 	
@@ -799,6 +825,8 @@ sub _traverse_index {
 	##
     my ($self, $offset, $ch, $force_return_next) = @_;
     $force_return_next = undef unless $force_return_next;
+
+    local($/,$\);
 	
 	my $tag = $self->_load_tag( $offset );
 
@@ -1297,6 +1325,8 @@ sub STORE {
 	##
     my $self = $_[0]->_get_self;
 	my $key = $_[1];
+
+    local($/,$\);
 
     # User may be storing a hash, in which case we do not want it run 
     # through the filtering system
@@ -2454,26 +2484,6 @@ B<WARNING:> Only call optimize() on the top-level node of the database, and
 make sure there are no child references lying around.  DBM::Deep keeps a reference 
 counter, and if it is greater than 1, optimize() will abort and return undef.
 
-=head2 AUTOVIVIFICATION
-
-Unfortunately, autovivification doesn't work with tied hashes.  This appears to 
-be a bug in Perl's tie() system, as I<Jakob Schmidt> encountered the very same 
-issue with his I<DWH_FIle> module (see L<http://search.cpan.org/search?module=DWH_File>),
-and it is also mentioned in the BUGS section for the I<MLDBM> module <see 
-L<http://search.cpan.org/search?module=MLDBM>).  Basically, on a new db file,
-this does not work:
-
-	$db->{foo}->{bar} = "hello";
-
-Since "foo" doesn't exist, you cannot add "bar" to it.  You end up with "foo"
-being an empty hash.  Try this instead, which works fine:
-
-	$db->{foo} = { bar => "hello" };
-
-As of Perl 5.8.7, this bug still exists.  I have walked very carefully through
-the execution path, and Perl indeed passes an empty hash to the STORE() method.
-Probably a bug in Perl.
-
 =head2 FILE CORRUPTION
 
 The current level of error handling in DBM::Deep is minimal.  Files I<are> checked
@@ -2721,10 +2731,10 @@ B<Devel::Cover> report on this module's test suite.
   ---------------------------- ------ ------ ------ ------ ------ ------ ------
   File                           stmt   bran   cond    sub    pod   time  total
   ---------------------------- ------ ------ ------ ------ ------ ------ ------
-  blib/lib/DBM/Deep.pm           95.2   83.8   70.0   98.2  100.0   58.0   91.0
-  blib/lib/DBM/Deep/Array.pm    100.0   91.1  100.0  100.0    n/a   26.7   98.0
-  blib/lib/DBM/Deep/Hash.pm      95.3   80.0  100.0  100.0    n/a   15.3   92.4
-  Total                          96.2   84.8   74.4   98.8  100.0  100.0   92.4
+  blib/lib/DBM/Deep.pm           95.4   84.6   69.1   98.2  100.0   60.3   91.0
+  blib/lib/DBM/Deep/Array.pm    100.0   91.1  100.0  100.0    n/a   26.4   98.0
+  blib/lib/DBM/Deep/Hash.pm      95.3   80.0  100.0  100.0    n/a   13.3   92.4
+  Total                          96.4   85.4   73.1   98.8  100.0  100.0   92.4
   ---------------------------- ------ ------ ------ ------ ------ ------ ------
 
 =head1 MORE INFORMATION

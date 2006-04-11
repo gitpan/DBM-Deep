@@ -2,16 +2,15 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
+          'PL_FILES' => {},
+          'INSTALLDIRS' => 'site',
           'NAME' => 'DBM::Deep',
           'VERSION_FROM' => 'lib/DBM/Deep.pm',
           'PREREQ_PM' => {
-                           'Digest::MD5' => '1.00',
+                           'Test::More' => '0.47',
                            'Scalar::Util' => '1.14',
                            'Test::Exception' => '0.21',
-                           'Test::More' => '0.47'
-                         },
-          'INSTALLDIRS' => 'site',
-          'EXE_FILES' => [],
-          'PL_FILES' => {}
+                           'Digest::MD5' => '1.00'
+                         }
         )
 ;

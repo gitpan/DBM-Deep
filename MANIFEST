@@ -25,14 +25,14 @@ t/15_digest.t
 t/16_circular.t
 t/17_import.t
 t/18_export.t
-t/19_crossref.t
 t/20_tie.t
 t/21_tie_access.t
 t/22_internal_copy.t
 t/23_misc.t
 t/24_autobless.t
 t/25_tie_return_value.t
-t/26_scalar_ref.t
 t/27_filehandle.t
 t/27_filehandle.t.db
 t/28_DATA.t
+t/29_dash_ell.t
+t/30_already_tied.t

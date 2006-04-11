@@ -2,7 +2,7 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 107;
+use Test::More tests => 110;
 use Test::Exception;
 
 use_ok( 'DBM::Deep' );
@@ -203,10 +203,18 @@ is($db->[0], "elem first");
 is($db->[1], "elem last");
 is($returned[0], "middle ABC");
 
-# These tests verify that the hash methods cannot be called on arraytypes.
-# They will be removed once the ARRAY and HASH types are refactored into their own classes.
+my %hash = ( a => 'foo' );
 
 $db->[0] = [ 1 .. 3 ];
-$db->[1] = { a => 'foo' };
+$db->[1] = \%hash;
 is( $db->[0]->length, 3, "Reuse of same space with array successful" );
 is( $db->[1]->fetch('a'), 'foo', "Reuse of same space with hash successful" );
+
+$hash{b} = '2';
+cmp_ok( $db->[1]{b}, '==', 2 );
+
+# Test autovivification
+
+$db->[9999]{bar} = 1;
+ok( $db->[9999] );
+cmp_ok( $db->[9999]{bar}, '==', 1 );
