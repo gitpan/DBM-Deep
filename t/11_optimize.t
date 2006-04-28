@@ -3,17 +3,15 @@
 ##
 use strict;
 use Test::More tests => 9;
+use File::Temp qw( tmpnam );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
+my $filename = tmpnam();
 my $db = DBM::Deep->new(
-	file => "t/test.db",
+	file => $filename,
 	autoflush => 1,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 ##
 # create some unused space
@@ -49,15 +47,13 @@ my $before = (stat($db->_fh()))[7];
 my $result = $db->optimize();
 my $after = (stat($db->_fh()))[7];
 
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
-
 ok( $result, "optimize succeeded" );
 ok( $after < $before, "file size has shrunk" ); # make sure file shrunk
 
 is( $db->{key1}, 'value1', "key1's value is still there after optimize" );
 is( $db->{a}{c}, 'value2', "key2's value is still there after optimize" );
+
+#print keys %{$db->{a}}, $/;
 
 ##
 # now for the tricky one -- try to store a new key while file is being
@@ -86,13 +82,10 @@ SKIP: {
         
         # re-open db
         $db = DBM::Deep->new(
-            file => "t/test.db",
+            file => $filename,
             autoflush => 1,
             locking => 1
         );
-        if ($db->error()) {
-            die "ERROR: " . $db->error();
-        }
         
         # optimize and exit
         $db->optimize();
@@ -105,13 +98,10 @@ SKIP: {
     
     # re-open db
     $db = DBM::Deep->new(
-        file => "t/test.db",
+        file => $filename,
         autoflush => 1,
         locking => 1
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
     
     # sleep for 1 second to make sure optimize() is running in the other fork
     sleep(1);
@@ -121,7 +111,13 @@ SKIP: {
     
     # see if it was stored successfully
     is( $db->{parentfork}, "hello", "stored key while optimize took place" );
-    # ok(1);
+
+#    undef $db;
+#    $db = DBM::Deep->new(
+#        file => $filename,
+#        autoflush => 1,
+#        locking => 1
+#    );
     
     # now check some existing values from before
     is( $db->{key1}, 'value1', "key1's value is still there after optimize" );

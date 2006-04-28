@@ -2,22 +2,17 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 110;
+use Test::More tests => 109;
 use Test::Exception;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-##
-# basic file open
-##
-unlink "t/test.db";
+my ($fh, $filename) = new_fh();
 my $db = DBM::Deep->new(
-	file => "t/test.db",
+	file => $filename,
 	type => DBM::Deep->TYPE_ARRAY
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 TODO: {
     local $TODO = "How is this test ever supposed to pass?";
@@ -58,7 +53,10 @@ is( $db->[-2], $db->[3], "-2nd index is 3rd index" );
 is( $db->[-3], $db->[2], "-3rd index is 2nd index" );
 is( $db->[-4], $db->[1], "-4th index is 1st index" );
 is( $db->[-5], $db->[0], "-5th index is 0th index" );
+
+# This is for Perls older than 5.8.0 because of is()'s prototype
 { my $v = $db->[-6]; is( $v, undef, "-6th index is undef" ); }
+
 is( $db->length, 5, "... and we have five elements after abortive -6 index lookup" );
 
 $db->[-1] = 'elem4.1';
@@ -203,16 +201,10 @@ is($db->[0], "elem first");
 is($db->[1], "elem last");
 is($returned[0], "middle ABC");
 
-my %hash = ( a => 'foo' );
-
 $db->[0] = [ 1 .. 3 ];
-$db->[1] = \%hash;
+$db->[1] = { a => 'foo' };
 is( $db->[0]->length, 3, "Reuse of same space with array successful" );
 is( $db->[1]->fetch('a'), 'foo', "Reuse of same space with hash successful" );
-
-$hash{b} = '2';
-cmp_ok( $db->[1]{b}, '==', 2 );
-
 # Test autovivification
 
 $db->[9999]{bar} = 1;

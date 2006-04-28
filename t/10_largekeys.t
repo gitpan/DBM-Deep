@@ -3,16 +3,14 @@
 ##
 use strict;
 use Test::More tests => 14;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
+my ($fh, $filename) = new_fh();
 my $db = DBM::Deep->new(
-	file => "t/test.db"
+	file => $filename,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 ##
 # large keys

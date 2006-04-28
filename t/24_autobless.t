@@ -7,19 +7,17 @@ use strict;
     sub foo { 'foo' };
 }
 
-use Test::More tests => 54;
+use Test::More tests => 64;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink 't/test.db';
+my ($fh, $filename) = new_fh();
 {
     my $db = DBM::Deep->new(
-        file     => "t/test.db",
+        file     => $filename,
         autobless => 1,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
 
     my $obj = bless {
         a => 1,
@@ -27,6 +25,10 @@ unlink 't/test.db';
     }, 'Foo';
 
     $db->{blessed} = $obj;
+    is( $db->{blessed}{a}, 1 );
+    is( $db->{blessed}{b}[0], 1 );
+    is( $db->{blessed}{b}[1], 2 );
+    is( $db->{blessed}{b}[2], 3 );
 
     my $obj2 = bless [
         { a => 'foo' },
@@ -34,22 +36,27 @@ unlink 't/test.db';
     ], 'Foo';
     $db->{blessed2} = $obj2;
 
+    is( $db->{blessed2}[0]{a}, 'foo' );
+    is( $db->{blessed2}[1], '2' );
+
     $db->{unblessed} = {};
     $db->{unblessed}{a} = 1;
     $db->{unblessed}{b} = [];
     $db->{unblessed}{b}[0] = 1;
     $db->{unblessed}{b}[1] = 2;
     $db->{unblessed}{b}[2] = 3;
+
+    is( $db->{unblessed}{a}, 1 );
+    is( $db->{unblessed}{b}[0], 1 );
+    is( $db->{unblessed}{b}[1], 2 );
+    is( $db->{unblessed}{b}[2], 3 );
 }
 
 {
     my $db = DBM::Deep->new(
-        file     => 't/test.db',
+        file     => $filename,
         autobless => 1,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
 
     my $obj = $db->{blessed};
     isa_ok( $obj, 'Foo' );
@@ -80,7 +87,7 @@ unlink 't/test.db';
 
 {
     my $db = DBM::Deep->new(
-        file     => 't/test.db',
+        file     => $filename,
         autobless => 1,
     );
     is( $db->{blessed}{c}, 'new' );
@@ -113,11 +120,9 @@ unlink 't/test.db';
 
 {
     my $db = DBM::Deep->new(
-        file     => 't/test.db',
+        file     => $filename,
+        autobless => 0,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
 
     my $obj = $db->{blessed};
     isa_ok( $obj, 'DBM::Deep' );
@@ -143,31 +148,25 @@ unlink 't/test.db';
     is( $db->{unblessed}{b}[2], 3 );
 }
 
+my ($fh2, $filename2) = new_fh();
 {
-    unlink 't/test2.db';
     my $db = DBM::Deep->new(
-        file     => "t/test2.db",
+        file     => $filename2,
         autobless => 1,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
     my $obj = bless {
         a => 1,
         b => [ 1 .. 3 ],
     }, 'Foo';
 
     $db->import( { blessed => $obj } );
+}
 
-    undef $db;
-
-    $db = DBM::Deep->new(
-        file     => "t/test2.db",
+{
+    my $db = DBM::Deep->new(
+        file     => $filename2,
         autobless => 1,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
 
     my $blessed = $db->{blessed};
     isa_ok( $blessed, 'Foo' );
@@ -180,14 +179,11 @@ unlink 't/test.db';
 	# longer named class (FooFoo) and replacing key in db file, then validating
 	# content after that point in file to check for corruption.
 	##
-    unlink 't/test3.db';
+    my ($fh3, $filename3) = new_fh();
     my $db = DBM::Deep->new(
-        file     => "t/test3.db",
+        file     => $filename3,
         autobless => 1,
     );
-    if ($db->error()) {
-        die "ERROR: " . $db->error();
-    }
 
     my $obj = bless {}, 'Foo';
 
@@ -200,4 +196,3 @@ unlink 't/test.db';
 
     is( $db->{after}, "hello" );
 }
-

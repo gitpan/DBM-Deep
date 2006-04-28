@@ -2,28 +2,20 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test;
-BEGIN { plan tests => 13 }
+use Test::More tests => 14;
+use t::common qw( new_fh );
 
-use DBM::Deep;
+use_ok( 'DBM::Deep' );
+
+my ($fh, $filename) = new_fh();
 
 my $salt = 38473827;
 
-##
-# basic file open
-##
-unlink "t/test.db";
 my $db = new DBM::Deep(
-	file => "t/test.db"
+	file => $filename,
+    digest => \&my_digest,
+    hash_size => 8,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
-
-##
-# Set digest handler
-##
-DBM::Deep::set_digest( \&my_digest, 8 );
 
 ##
 # put/get key
@@ -91,13 +83,6 @@ ok( $db->get("key1") eq "value2" );
 $db->put("key1", "value222222222222222222222222");
 
 ok( $db->get("key1") eq "value222222222222222222222222" );
-
-##
-# close, delete file, exit
-##
-undef $db;
-unlink "t/test.db";
-exit(0);
 
 sub my_digest {
 	##

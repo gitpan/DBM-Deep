@@ -8,11 +8,12 @@
 use strict;
 use Test::More tests => 4;
 use Test::Exception;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
-my $db = DBM::Deep->new( 't/test.db' );
+my ($fh, $filename) = new_fh();
+my $db = DBM::Deep->new( $filename );
 
 ##
 # put/get key

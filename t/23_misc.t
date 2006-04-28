@@ -2,30 +2,26 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More;
+use Test::More tests => 7;
 use Test::Exception;
-
-plan tests => 7;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
-my $db = DBM::Deep->new( "t/test.db" );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
+my ($fh, $filename) = new_fh();
+my $db = DBM::Deep->new( $filename );
 
 $db->{key1} = "value1";
 is( $db->{key1}, "value1", "Value set correctly" );
 
 # Testing to verify that the close() will occur if open is called on an open DB.
-$db->_open;
-
+#XXX WOW is this hacky ...
+$db->_get_self->_fileobj->open;
 is( $db->{key1}, "value1", "Value still set after re-open" );
 
 throws_ok {
     my $db = DBM::Deep->new( 't' );
-} qr/^DBM::Deep: Cannot sysopen file: t: /, "Can't open a file we aren't allowed to touch";
+} qr/^DBM::Deep: Cannot sysopen file 't': /, "Can't open a file we aren't allowed to touch";
 
 throws_ok {
     my $db = DBM::Deep->new( __FILE__ );
@@ -33,19 +29,19 @@ throws_ok {
 
 {
     my $db = DBM::Deep->new(
-        file => 't/test.db',
+        file => $filename,
         locking => 1,
     );
-    $db->_close;
-    ok( !$db->lock );
+    $db->_get_self->_fileobj->close( $db->_get_self );
+    ok( !$db->lock, "Calling lock() on a closed database returns false" );
 }
 
 {
     my $db = DBM::Deep->new(
-        file => 't/test.db',
+        file => $filename,
         locking => 1,
     );
     $db->lock;
-    $db->_close;
-    ok( !$db->unlock );
+    $db->_get_self->_fileobj->close( $db->_get_self );
+    ok( !$db->unlock, "Calling unlock() on a closed database returns false" );
 }

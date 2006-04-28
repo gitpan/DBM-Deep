@@ -3,49 +3,52 @@
 ##
 use strict;
 use Test::More tests => 14;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
-my $db = DBM::Deep->new(
-	file => "t/test.db",
-);
-if ($db->error()) {
-	die "ERROR: " . $db->error();
+my ($fh, $filename) = new_fh();
+
+{
+    my $clone;
+
+    {
+        my $db = DBM::Deep->new(
+            file => $filename,
+        );
+
+        $db->{key1} = "value1";
+
+        ##
+        # clone db handle, make sure both are usable
+        ##
+        $clone = $db->clone();
+
+        is($clone->{key1}, "value1");
+
+        $clone->{key2} = "value2";
+        $db->{key3} = "value3";
+
+        is($db->{key1}, "value1");
+        is($db->{key2}, "value2");
+        is($db->{key3}, "value3");
+
+        is($clone->{key1}, "value1");
+        is($clone->{key2}, "value2");
+        is($clone->{key3}, "value3");
+    }
+
+    is($clone->{key1}, "value1");
+    is($clone->{key2}, "value2");
+    is($clone->{key3}, "value3");
 }
 
-$db->{key1} = "value1";
+{
+    my $db = DBM::Deep->new(
+        file => $filename,
+    );
 
-##
-# clone db handle, make sure both are usable
-##
-my $clone = $db->clone();
-
-is($clone->{key1}, "value1");
-
-$clone->{key2} = "value2";
-$db->{key3} = "value3";
-
-is($db->{key1}, "value1");
-is($db->{key2}, "value2");
-is($db->{key3}, "value3");
-
-is($clone->{key1}, "value1");
-is($clone->{key2}, "value2");
-is($clone->{key3}, "value3");
-
-undef $db;
-
-is($clone->{key1}, "value1");
-is($clone->{key2}, "value2");
-is($clone->{key3}, "value3");
-
-undef $clone;
-
-$db = DBM::Deep->new(
-	file => "t/test.db",
-);
-
-is($db->{key1}, "value1");
-is($db->{key2}, "value2");
-is($db->{key3}, "value3");
+    is($db->{key1}, "value1");
+    is($db->{key2}, "value2");
+    is($db->{key3}, "value3");
+}

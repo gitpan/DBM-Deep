@@ -7,10 +7,14 @@ WriteMakefile
           'NAME' => 'DBM::Deep',
           'VERSION_FROM' => 'lib/DBM/Deep.pm',
           'PREREQ_PM' => {
-                           'Test::More' => '0.47',
                            'Scalar::Util' => '1.14',
                            'Test::Exception' => '0.21',
-                           'Digest::MD5' => '1.00'
+                           'Fcntl' => '0.01',
+                           'Test::More' => '0.47',
+                           'Digest::MD5' => '1.00',
+                           'File::Temp' => '0.01',
+                           'File::Path' => '0.01',
+                           'Test::Deep' => '0.095'
                          }
         )
 ;

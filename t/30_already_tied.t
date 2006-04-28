@@ -4,11 +4,12 @@
 use strict;
 use Test::More tests => 7;
 use Test::Exception;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink 't/test.db';
-my $db = DBM::Deep->new( 't/test.db' );
+my ($fh, $filename) = new_fh();
+my $db = DBM::Deep->new( $filename );
 
 {
     {
@@ -28,7 +29,7 @@ my $db = DBM::Deep->new( 't/test.db' );
 
     throws_ok {
         $db->{foo} = \%hash;
-    } qr/Cannot store a tied value/, "Cannot store tied hashes";
+    } qr/Cannot store something that is tied/, "Cannot store tied hashes";
 }
 
 {
@@ -51,7 +52,7 @@ my $db = DBM::Deep->new( 't/test.db' );
 
     throws_ok {
         $db->{foo} = \@array;
-    } qr/Cannot store a tied value/, "Cannot store tied arrays";
+    } qr/Cannot store something that is tied/, "Cannot store tied arrays";
 }
 
     {
@@ -71,4 +72,4 @@ my $db = DBM::Deep->new( 't/test.db' );
 
 throws_ok {
     $db->{foo} = \$scalar;
-} qr/Storage of variables of type 'SCALAR' is not supported/, "Cannot store scalar references, let alone tied scalars";
+} qr/Storage of references of type 'SCALAR' is not supported/, "Cannot store scalar references, let alone tied scalars";

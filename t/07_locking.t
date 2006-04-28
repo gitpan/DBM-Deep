@@ -3,21 +3,15 @@
 ##
 use strict;
 use Test::More tests => 4;
-$|=1;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-##
-# basic file open
-##
-unlink "t/test.db";
+my ($fh, $filename) = new_fh();
 my $db = DBM::Deep->new(
-	file => "t/test.db",
+	file => $filename,
 	locking => 1,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 ##
 # basic put/get

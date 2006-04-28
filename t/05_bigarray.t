@@ -2,18 +2,18 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 2;
+use Test::More tests => 4;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
+diag "This test can take up to a minute to run. Please be patient.";
+
+my ($fh, $filename) = new_fh();
 my $db = DBM::Deep->new(
-	file => "t/test.db",
-	type => DBM::Deep->TYPE_ARRAY
+	file => $filename,
+	type => DBM::Deep->TYPE_ARRAY,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 ##
 # put/get many keys
@@ -32,3 +32,7 @@ for ( 0 .. $max_keys ) {
     };
 }
 is( $count, $max_keys, "We read $count keys" );
+
+cmp_ok( scalar(@$db), '==', $max_keys + 1, "Number of elements is correct" );
+$db->clear;
+cmp_ok( scalar(@$db), '==', 0, "Number of elements after clear() is correct" );

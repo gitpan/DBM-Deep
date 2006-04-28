@@ -2,39 +2,47 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 2;
+use Test::More tests => 4;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
-my $db = DBM::Deep->new(
-	file => "t/test.db",
-	autoflush => 1
-);
-if ($db->error()) {
-	die "ERROR: " . $db->error();
+my ($before, $after);
+
+{
+    my ($fh, $filename) = new_fh();
+    my $db = DBM::Deep->new(
+        file => $filename,
+        autoflush => 1,
+    );
+    $db->{key1} = "value1";
+    $db->{key2} = "value2";
+    $before = (stat($db->_fh()))[7];
 }
-$db->{key1} = "value1";
-$db->{key2} = "value2";
-my $before = (stat($db->_fh()))[7];
-undef $db;
 
-##
-# set pack to 2-byte (16-bit) words
-##
-DBM::Deep::set_pack(2, 'S');
+{
+    my ($fh, $filename) = new_fh();
+    {
+        my $db = DBM::Deep->new(
+            file => $filename,
+            autoflush => 1,
+            pack_size => 'small',
+        );
 
-unlink "t/test.db";
-$db = DBM::Deep->new(
-	file => "t/test.db",
-	autoflush => 1
-);
-if ($db->error()) {
-	die "ERROR: " . $db->error();
+        $db->{key1} = "value1";
+        $db->{key2} = "value2";
+        $after = (stat($db->_fh()))[7];
+    }
+
+    # This tests the header to verify that the pack_size is really there
+    {
+        my $db = DBM::Deep->new(
+            file => $filename,
+        );
+
+        is( $db->{key1}, 'value1', 'Can read key1' );
+        is( $db->{key2}, 'value2', 'Can read key2' );
+    }
 }
-$db->{key1} = "value1";
-$db->{key2} = "value2";
-my $after = (stat($db->_fh()))[7];
-undef $db;
 
-ok( $after < $before );
+cmp_ok( $after, '<', $before, "The new packsize reduced the size of the file" );

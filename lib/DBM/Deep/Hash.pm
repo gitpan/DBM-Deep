@@ -1,11 +1,34 @@
 package DBM::Deep::Hash;
 
+use 5.6.0;
+
 use strict;
+use warnings;
+
+our $VERSION = q(0.99_01);
 
 use base 'DBM::Deep';
 
 sub _get_self {
     eval { local $SIG{'__DIE__'}; tied( %{$_[0]} ) } || $_[0]
+}
+
+sub _repr { shift;return { @_ } }
+
+sub _import {
+    my $self = shift;
+    my ($struct) = @_;
+
+    eval {
+        local $SIG{'__DIE__'};
+        foreach my $key (keys %$struct) {
+            $self->put($key, $struct->{$key});
+        }
+    }; if ($@) {
+        $self->_throw_error("Cannot import: type mismatch");
+    }
+
+    return 1;
 }
 
 sub TIEHASH {
@@ -22,27 +45,27 @@ sub TIEHASH {
 
 sub FETCH {
     my $self = shift->_get_self;
-    my $key = ($self->_root->{filter_store_key})
-        ? $self->_root->{filter_store_key}->($_[0])
+    my $key = ($self->_fileobj->{filter_store_key})
+        ? $self->_fileobj->{filter_store_key}->($_[0])
         : $_[0];
 
-    return $self->SUPER::FETCH( $key );
+    return $self->SUPER::FETCH( $key, $_[0] );
 }
 
 sub STORE {
     my $self = shift->_get_self;
-	my $key = ($self->_root->{filter_store_key})
-        ? $self->_root->{filter_store_key}->($_[0])
+	my $key = ($self->_fileobj->{filter_store_key})
+        ? $self->_fileobj->{filter_store_key}->($_[0])
         : $_[0];
     my $value = $_[1];
 
-    return $self->SUPER::STORE( $key, $value );
+    return $self->SUPER::STORE( $key, $value, $_[0] );
 }
 
 sub EXISTS {
     my $self = shift->_get_self;
-	my $key = ($self->_root->{filter_store_key})
-        ? $self->_root->{filter_store_key}->($_[0])
+	my $key = ($self->_fileobj->{filter_store_key})
+        ? $self->_fileobj->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::EXISTS( $key );
@@ -50,35 +73,30 @@ sub EXISTS {
 
 sub DELETE {
     my $self = shift->_get_self;
-	my $key = ($self->_root->{filter_store_key})
-        ? $self->_root->{filter_store_key}->($_[0])
+	my $key = ($self->_fileobj->{filter_store_key})
+        ? $self->_fileobj->{filter_store_key}->($_[0])
         : $_[0];
 
-    return $self->SUPER::DELETE( $key );
+    return $self->SUPER::DELETE( $key, $_[0] );
 }
 
 sub FIRSTKEY {
 	##
 	# Locate and return first key (in no particular order)
 	##
-    my $self = $_[0]->_get_self;
+    my $self = shift->_get_self;
 
-	##
-	# Make sure file is open
-	##
-	if (!defined($self->_fh)) { $self->_open(); }
-	
 	##
 	# Request shared lock for reading
 	##
 	$self->lock( $self->LOCK_SH );
 	
-	my $result = $self->_get_next_key();
+	my $result = $self->_engine->get_next_key($self);
 	
 	$self->unlock();
 	
-	return ($result && $self->_root->{filter_fetch_key})
-        ? $self->_root->{filter_fetch_key}->($result)
+	return ($result && $self->_fileobj->{filter_fetch_key})
+        ? $self->_fileobj->{filter_fetch_key}->($result)
         : $result;
 }
 
@@ -86,38 +104,47 @@ sub NEXTKEY {
 	##
 	# Return next key (in no particular order), given previous one
 	##
-    my $self = $_[0]->_get_self;
+    my $self = shift->_get_self;
 
-	my $prev_key = ($self->_root->{filter_store_key})
-        ? $self->_root->{filter_store_key}->($_[1])
-        : $_[1];
+	my $prev_key = ($self->_fileobj->{filter_store_key})
+        ? $self->_fileobj->{filter_store_key}->($_[0])
+        : $_[0];
 
-	my $prev_md5 = $DBM::Deep::DIGEST_FUNC->($prev_key);
+	my $prev_md5 = $self->_engine->{digest}->($prev_key);
 
-	##
-	# Make sure file is open
-	##
-	if (!defined($self->_fh)) { $self->_open(); }
-	
 	##
 	# Request shared lock for reading
 	##
 	$self->lock( $self->LOCK_SH );
 	
-	my $result = $self->_get_next_key( $prev_md5 );
+	my $result = $self->_engine->get_next_key( $self, $prev_md5 );
 	
 	$self->unlock();
 	
-	return ($result && $self->_root->{filter_fetch_key})
-        ? $self->_root->{filter_fetch_key}->($result)
+	return ($result && $self->_fileobj->{filter_fetch_key})
+        ? $self->_fileobj->{filter_fetch_key}->($result)
         : $result;
 }
 
 ##
 # Public method aliases
 ##
-*first_key = *FIRSTKEY;
-*next_key = *NEXTKEY;
+sub first_key { (shift)->FIRSTKEY(@_) }
+sub next_key { (shift)->NEXTKEY(@_) }
+
+sub _copy_node {
+    my $self = shift;
+    my ($db_temp) = @_;
+
+    my $key = $self->first_key();
+    while ($key) {
+        my $value = $self->get($key);
+        $self->_copy_value( \$db_temp->{$key}, $value );
+        $key = $self->next_key($key);
+    }
+
+    return 1;
+}
 
 1;
 __END__

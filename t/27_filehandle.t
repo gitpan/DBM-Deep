@@ -2,42 +2,101 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 7;
+use Test::More tests => 14;
 use Test::Exception;
+use t::common qw( new_fh );
 
-use DBM::Deep;
+use_ok( 'DBM::Deep' );
 
-open(FILE, "t/27_filehandle.t.db") || die("Can't open t/27_filehandle.t.db\n");
+{
+    my ($fh, $filename) = new_fh();
 
-my $db;
+    # Create the datafile to be used
+    {
+        my $db = DBM::Deep->new( $filename );
+        $db->{hash} = { foo => [ 'a' .. 'c' ] };
+    }
 
-# test if we can open and read a db using its filehandle
+    {
+        open(my $fh, '<', $filename) || die("Can't open '$filename' for reading: $!\n");
 
-ok(($db = DBM::Deep->new(fh => *FILE)), "open db in filehandle");
-ok($db->{hash}->{foo}->[1] eq 'b', "and get at stuff in the database");
+        my $db;
 
-undef $db;
-close(FILE);
+        # test if we can open and read a db using its filehandle
+
+        ok(($db = DBM::Deep->new(fh => $fh)), "open db in filehandle");
+        ok($db->{hash}->{foo}->[1] eq 'b', "and get at stuff in the database");
+        throws_ok {
+            $db->{foo} = 1;
+        } qr/Cannot write to a readonly filehandle/,
+        "Can't write to a read-only filehandle";
+        ok( !$db->exists( 'foo' ), "foo doesn't exist" );
+
+        my $db_obj = $db->_get_self;
+        ok( $db_obj->_fileobj->{inode}, "The inode has been set" );
+
+        close($fh);
+    }
+}
 
 # now the same, but with an offset into the file.  Use the database that's
 # embedded in the test for the DATA filehandle.  First, find the database ...
-open(FILE, "t/28_DATA.t") || die("Can't open t/28_DATA.t\n");
-while(my $line = <FILE>) {
-    last if($line =~ /^__DATA__/);
+{
+    my ($fh,$filename) = new_fh();
+
+    print $fh "#!$^X\n";
+    print $fh <<'__END_FH__';
+use strict;
+use Test::More no_plan => 1;
+Test::More->builder->no_ending(1);
+Test::More->builder->{Curr_Test} = 12;
+
+use_ok( 'DBM::Deep' );
+
+my $db = DBM::Deep->new({
+    fh => *DATA,
+});
+is($db->{x}, 'b', "and get at stuff in the database");
+__END_FH__
+    print $fh "__DATA__\n";
+    close $fh;
+
+    my $offset = do {
+        open my $fh, '<', $filename;
+        while(my $line = <$fh>) {
+            last if($line =~ /^__DATA__/);
+        }
+        tell($fh);
+    };
+
+    {
+        my $db = DBM::Deep->new({
+            file        => $filename,
+            file_offset => $offset,
+        });
+
+        $db->{x} = 'b';
+        is( $db->{x}, 'b', 'and it was stored' );
+    }
+
+
+    {
+        open my $fh, '<', $filename;
+        my $db = DBM::Deep->new({
+            fh          => $fh,
+            file_offset => $offset,
+        });
+
+        is($db->{x}, 'b', "and get at stuff in the database");
+
+        ok( !$db->exists( 'foo' ), "foo doesn't exist yet" );
+        throws_ok {
+            $db->{foo} = 1;
+        } qr/Cannot write to a readonly filehandle/, "Can't write to a read-only filehandle";
+        ok( !$db->exists( 'foo' ), "foo still doesn't exist" );
+
+        is( $db->{x}, 'b' );
+    }
+
+    exec( "$^X -Iblib/lib $filename" );
 }
-my $offset = tell(FILE);
-close(FILE);
-
-open(FILE, '<', "t/28_DATA.t");
-ok(($db = DBM::Deep->new(fh => *FILE, file_offset => $offset)), "open db in filehandle with offset");
-ok($db->{hash}->{foo}->[1] eq 'b', "and get at stuff in the database");
-
-ok( !$db->{foo}, "foo doesn't exist yet" );
-
-SKIP: {
-    skip "F_GETFL tests skipped on Win32", 1 if $^O eq 'MSWin32';
-    throws_ok {
-        $db->{foo} = 1;
-    } qr/Cannot write to a readonly filehandle/, "Can't write to a read-only filehandle";
-}
-ok( !$db->{foo}, "foo doesn't exist yet" );

@@ -2,18 +2,19 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 2;
+use Test::More tests => 5;
+use Test::Deep;
+use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
-unlink "t/test.db";
+diag "This test can take up to a minute to run. Please be patient.";
+
+my ($fh, $filename) = new_fh();
 my $db = DBM::Deep->new(
-	file => "t/test.db",
-	type => DBM::Deep->TYPE_HASH
+	file => $filename,
+	type => DBM::Deep->TYPE_HASH,
 );
-if ($db->error()) {
-	die "ERROR: " . $db->error();
-}
 
 ##
 # put/get many keys
@@ -32,3 +33,11 @@ for ( 0 .. $max_keys ) {
     };
 }
 is( $count, $max_keys, "We read $count keys" );
+
+my @keys = sort keys %$db;
+cmp_ok( scalar(@keys), '==', $max_keys + 1, "Number of keys is correct" );
+my @control =  sort map { "hello $_" } 0 .. $max_keys;
+cmp_deeply( \@keys, \@control, "Correct keys are there" );
+
+$db->clear;
+cmp_ok( scalar(keys %$db), '==', 0, "Number of keys after clear() is correct" );
