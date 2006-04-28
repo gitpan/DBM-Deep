@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: DBM-Deep
-version: 0.99_01
+version: 0.99_02
 author:
 
 abstract: A pure perl multi-level hash/array DBM
