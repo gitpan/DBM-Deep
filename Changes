@@ -1,5 +1,26 @@
 Revision history for DBM::Deep.
 
+0.99_03 Jan ?? 00:00:00 2007 EDT
+    - THIS VERSION IS INCOMPATIBLE WITH FILES FROM ALL OTHER PRIOR VERSIONS.
+      - The fileformat changed completely. I will be writing a converter, but
+        it's not there right now. Do NOT expect that this module will
+        correctly detect older versions and handle them sanely. Sanity will be
+        there for 1.00, but we're not there yet, are we?
+    - Converted to use FileHandle::Fmode to handle filehandle status checks
+    - Fixed bug with deleting already-deleted items on Win32 (reported by Nigel Sandever)
+    - The guts of how transactions work has been rewritten to better handle
+      some edgecases. This required a complete rewrite of the engine.
+    - Freespace management is now in place. It's not perfect, but it's there.
+    - The rewrite of the engine required a rewrite of how first_key/next_key
+      was implemented. This should result in significant speed improvements.
+    - Self-reference has been removed. This means you cannot do:
+          $db->{foo} = { x => 'y' };
+          $db->{bar} = $db->{foo};
+      I hope to be able to return this functionality by 1.00, but I cannot
+      promise anything. To do this properly, it requires refcounting in order
+      to correctly handle deletions and transactions. Once you move away from
+      a simple tree, everything becomes really hard.
+
 0.99_02 Apr 28 05:00:00 2006 Pacific
     - Added missing file to the MANIFEST
 
@@ -18,6 +39,24 @@ Revision history for DBM::Deep.
       - Instead, you will now pass the appropriate values into new()
       - A pack_size parameter has been added to make 64-bit files easier
     - Transactions now work
+
+0.983 Apr 10 20:00:00 2006 Pacific
+    - Added patch inspired by Jeff Janes (Thanks!)
+      - Autovivification now works correctly
+      - The following now works correctly
+        my %hash = ( a => 1 );
+        $db->{hash} = \%hash;
+        $hash{b} = 2;
+        cmp_ok( $db->{hash}{b}, '==', 2 );
+    - (RT#18530) - DBM::Deep now plays nicely with -l
+
+0.982 Mar 08 11:00:00 2006 Pacific
+    - Fixed smoketests that were failing on Win32
+    - Added restriction for Perl 5.6.0 or higher.
+      - Digest::MD5 and Sub::Uplevel (dep of Test::Exception) require 5.6+
+
+0.981 Mar 06 11:00:00 2006 Pacific
+    - (RT#17947) - Fixed test that was failing on older Perls
 
 0.98  Feb 28 11:00:00 2006 Pacific
     - Added in patch by David Cantrell to allow use of DATA filehandle

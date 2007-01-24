@@ -5,16 +5,19 @@ WriteMakefile
           'PL_FILES' => {},
           'INSTALLDIRS' => 'site',
           'NAME' => 'DBM::Deep',
+          'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/DBM/Deep.pm',
           'PREREQ_PM' => {
                            'Scalar::Util' => '1.14',
                            'Test::Exception' => '0.21',
+                           'Clone::Any' => '0',
                            'Fcntl' => '0.01',
                            'Test::More' => '0.47',
-                           'Digest::MD5' => '1.00',
                            'File::Temp' => '0.01',
+                           'Digest::MD5' => '1.00',
                            'File::Path' => '0.01',
-                           'Test::Deep' => '0.095'
+                           'Test::Deep' => '0.095',
+                           'FileHandle::Fmode' => '0.05'
                          }
         )
 ;

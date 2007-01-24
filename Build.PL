@@ -6,10 +6,12 @@ my $build = Module::Build->new(
     module_name => 'DBM::Deep',
     license => 'perl',
     requires => {
-        perl           => '5.6.0',
-        'Digest::MD5'  => '1.00',
-        'Fcntl'        => '0.01',
-        'Scalar::Util' => '1.14',
+        'perl'              => '5.6.0',
+        'Clone::Any'        => '0',
+        'Digest::MD5'       => '1.00',
+        'Fcntl'             => '0.01',
+        'FileHandle::Fmode' => '0.05',
+        'Scalar::Util'      => '1.14',
     },
     optional => {
     },
@@ -22,10 +24,9 @@ my $build = Module::Build->new(
     },
     create_makefile_pl => 'traditional',
     add_to_cleanup => [
-        'META.yml', '*.bak', '*.gz', 'Makefile.PL', 't/test*.db', 'cover_db'
+        'META.yml', '*.bak', '*.gz', 'Makefile.PL', 't/test*.db', 'cover_db',
     ],
     test_files => 't/??_*.t',
 );
 
 $build->create_build_script;
-

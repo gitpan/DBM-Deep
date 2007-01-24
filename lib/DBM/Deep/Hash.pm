@@ -5,7 +5,7 @@ use 5.6.0;
 use strict;
 use warnings;
 
-our $VERSION = q(0.99_01);
+our $VERSION = q(0.99_03);
 
 use base 'DBM::Deep';
 
@@ -13,19 +13,15 @@ sub _get_self {
     eval { local $SIG{'__DIE__'}; tied( %{$_[0]} ) } || $_[0]
 }
 
+#XXX Need to add a check here for @_ % 2
 sub _repr { shift;return { @_ } }
 
 sub _import {
     my $self = shift;
     my ($struct) = @_;
 
-    eval {
-        local $SIG{'__DIE__'};
-        foreach my $key (keys %$struct) {
-            $self->put($key, $struct->{$key});
-        }
-    }; if ($@) {
-        $self->_throw_error("Cannot import: type mismatch");
+    foreach my $key (keys %$struct) {
+        $self->put($key, $struct->{$key});
     }
 
     return 1;
@@ -45,8 +41,9 @@ sub TIEHASH {
 
 sub FETCH {
     my $self = shift->_get_self;
-    my $key = ($self->_fileobj->{filter_store_key})
-        ? $self->_fileobj->{filter_store_key}->($_[0])
+    DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
+    my $key = ($self->_storage->{filter_store_key})
+        ? $self->_storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::FETCH( $key, $_[0] );
@@ -54,8 +51,9 @@ sub FETCH {
 
 sub STORE {
     my $self = shift->_get_self;
-	my $key = ($self->_fileobj->{filter_store_key})
-        ? $self->_fileobj->{filter_store_key}->($_[0])
+    DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
+	my $key = ($self->_storage->{filter_store_key})
+        ? $self->_storage->{filter_store_key}->($_[0])
         : $_[0];
     my $value = $_[1];
 
@@ -64,8 +62,9 @@ sub STORE {
 
 sub EXISTS {
     my $self = shift->_get_self;
-	my $key = ($self->_fileobj->{filter_store_key})
-        ? $self->_fileobj->{filter_store_key}->($_[0])
+    DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
+	my $key = ($self->_storage->{filter_store_key})
+        ? $self->_storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::EXISTS( $key );
@@ -73,8 +72,9 @@ sub EXISTS {
 
 sub DELETE {
     my $self = shift->_get_self;
-	my $key = ($self->_fileobj->{filter_store_key})
-        ? $self->_fileobj->{filter_store_key}->($_[0])
+    DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
+	my $key = ($self->_storage->{filter_store_key})
+        ? $self->_storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::DELETE( $key, $_[0] );
@@ -91,12 +91,12 @@ sub FIRSTKEY {
 	##
 	$self->lock( $self->LOCK_SH );
 	
-	my $result = $self->_engine->get_next_key($self);
+	my $result = $self->_engine->get_next_key( $self );
 	
 	$self->unlock();
 	
-	return ($result && $self->_fileobj->{filter_fetch_key})
-        ? $self->_fileobj->{filter_fetch_key}->($result)
+	return ($result && $self->_storage->{filter_fetch_key})
+        ? $self->_storage->{filter_fetch_key}->($result)
         : $result;
 }
 
@@ -106,23 +106,21 @@ sub NEXTKEY {
 	##
     my $self = shift->_get_self;
 
-	my $prev_key = ($self->_fileobj->{filter_store_key})
-        ? $self->_fileobj->{filter_store_key}->($_[0])
+	my $prev_key = ($self->_storage->{filter_store_key})
+        ? $self->_storage->{filter_store_key}->($_[0])
         : $_[0];
-
-	my $prev_md5 = $self->_engine->{digest}->($prev_key);
 
 	##
 	# Request shared lock for reading
 	##
 	$self->lock( $self->LOCK_SH );
 	
-	my $result = $self->_engine->get_next_key( $self, $prev_md5 );
+	my $result = $self->_engine->get_next_key( $self, $prev_key );
 	
 	$self->unlock();
 	
-	return ($result && $self->_fileobj->{filter_fetch_key})
-        ? $self->_fileobj->{filter_fetch_key}->($result)
+	return ($result && $self->_storage->{filter_fetch_key})
+        ? $self->_storage->{filter_fetch_key}->($result)
         : $result;
 }
 
