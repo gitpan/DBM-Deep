@@ -1,6 +1,13 @@
 Revision history for DBM::Deep.
 
-0.99_03 Jan ?? 00:00:00 2007 EDT
+0.99_04 Jan 24 22:30:00 2007 EDT
+    - Added the missing lib/DBM/Deep.pod file to the MANIFEST
+    - Fixed a poorly-designed test that was failing depending on what Clone::Any
+    - was using.
+    - All "use 5.6.0;" lines are now "use 5.006_000;" to avoid warnings about
+      unsupported vstrings in bleadperl.
+
+0.99_03 Jan 23 22:30:00 2007 EDT
     - THIS VERSION IS INCOMPATIBLE WITH FILES FROM ALL OTHER PRIOR VERSIONS.
       - The fileformat changed completely. I will be writing a converter, but
         it's not there right now. Do NOT expect that this module will

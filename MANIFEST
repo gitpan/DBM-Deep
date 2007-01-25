@@ -1,6 +1,7 @@
 Build.PL
 Changes
 lib/DBM/Deep.pm
+lib/DBM/Deep.pod
 lib/DBM/Deep/Array.pm
 lib/DBM/Deep/Cookbook.pod
 lib/DBM/Deep/Engine.pm
@@ -21,6 +22,7 @@ t/07_locking.t
 t/08_deephash.t
 t/09_deeparray.t
 t/10_largekeys.t
+t/11_optimize.t
 t/12_clone.t
 t/13_setpack.t
 t/14_filter.t

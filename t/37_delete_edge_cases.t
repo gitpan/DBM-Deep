@@ -4,7 +4,7 @@
 use strict;
 use Test::More tests => 4;
 use Test::Deep;
-use Clone::Any qw( clone );
+use Clone qw( clone );
 use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );

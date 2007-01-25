@@ -1,11 +1,11 @@
 package DBM::Deep::Array;
 
-use 5.6.0;
+use 5.006_000;
 
 use strict;
 use warnings;
 
-our $VERSION = '0.99_03';
+our $VERSION = '0.99_04';
 
 # This is to allow DBM::Deep::Array to handle negative indices on
 # its own. Otherwise, Perl would intercept the call to negative

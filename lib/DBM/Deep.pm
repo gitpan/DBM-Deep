@@ -29,16 +29,16 @@ package DBM::Deep;
 #    modify it under the same terms as Perl itself.
 ##
 
-use 5.6.0;
+use 5.006_000;
 
 use strict;
 use warnings;
 
-our $VERSION = q(0.99_03);
+our $VERSION = q(0.99_04);
 
 use Fcntl qw( :flock );
 
-use Clone::Any '_clone_data';
+use Clone ();
 use Digest::MD5 ();
 use FileHandle::Fmode ();
 use Scalar::Util ();
@@ -246,7 +246,7 @@ sub import {
     eval {
         local $SIG{'__DIE__'};
         $self->begin_work;
-        $self->_import( _clone_data( $struct ) );
+        $self->_import( Clone::clone( $struct ) );
         $self->commit;
     }; if ( my $e = $@ ) {
         $self->rollback;

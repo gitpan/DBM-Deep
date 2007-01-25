@@ -10,11 +10,11 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Scalar::Util' => '1.14',
                            'Test::Exception' => '0.21',
-                           'Clone::Any' => '0',
                            'Fcntl' => '0.01',
                            'Test::More' => '0.47',
                            'File::Temp' => '0.01',
                            'Digest::MD5' => '1.00',
+                           'Clone' => '0.01',
                            'File::Path' => '0.01',
                            'Test::Deep' => '0.095',
                            'FileHandle::Fmode' => '0.05'

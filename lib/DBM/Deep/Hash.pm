@@ -1,11 +1,11 @@
 package DBM::Deep::Hash;
 
-use 5.6.0;
+use 5.006_000;
 
 use strict;
 use warnings;
 
-our $VERSION = q(0.99_03);
+our $VERSION = q(0.99_04);
 
 use base 'DBM::Deep';
 

@@ -97,16 +97,17 @@ use_ok( 'DBM::Deep' );
 
     $db->{foo} = 'bar';
 
+    my $x;
     my $struct = {
         key1 => [
-            2, sub {}, 3, 
+            2, \$x, 3, 
         ],
     };
 
     eval {
         $db->import( $struct );
     };
-    like( $@, qr/Storage of references of type 'CODE' is not supported/, 'Error message correct' );
+    like( $@, qr/Storage of references of type 'SCALAR' is not supported/, 'Error message correct' );
 
     cmp_deeply(
         $db,

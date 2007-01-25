@@ -1,18 +1,18 @@
 ---
 name: DBM-Deep
-version: 0.99_03
+version: 0.99_04
 author: []
 abstract: A pure perl multi-level hash/array DBM that supports transactions
 license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Clone::Any: 0
+  Clone: 0.01
   Digest::MD5: 1.00
   Fcntl: 0.01
   FileHandle::Fmode: 0.05
   Scalar::Util: 1.14
-  perl: 5.6.0
+  perl: 5.006_000
 build_requires:
   File::Path: 0.01
   File::Temp: 0.01
@@ -22,13 +22,13 @@ build_requires:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 0.99_03
+    version: 0.99_04
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
-    version: 0.99_03
+    version: 0.99_04
   DBM::Deep::Engine:
     file: lib/DBM/Deep/Engine.pm
-    version: 0.99_03
+    version: 0.99_04
   DBM::Deep::Engine::Sector:
     file: lib/DBM/Deep/Engine.pm
   DBM::Deep::Engine::Sector::BucketList:
@@ -45,10 +45,10 @@ provides:
     file: lib/DBM/Deep/Engine.pm
   DBM::Deep::File:
     file: lib/DBM/Deep/File.pm
-    version: 0.99_03
+    version: 0.99_04
   DBM::Deep::Hash:
     file: lib/DBM/Deep/Hash.pm
-    version: 0.99_03
+    version: 0.99_04
   DBM::Deep::Iterator:
     file: lib/DBM/Deep/Engine.pm
   DBM::Deep::Iterator::BucketList:
