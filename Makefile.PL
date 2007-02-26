@@ -12,6 +12,7 @@ WriteMakefile
                            'Test::Exception' => '0.21',
                            'Fcntl' => '0.01',
                            'Test::More' => '0.47',
+                           'Test::Warn' => '0.08',
                            'File::Temp' => '0.01',
                            'Digest::MD5' => '1.00',
                            'Clone' => '0.01',
