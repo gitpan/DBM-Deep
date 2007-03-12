@@ -10,6 +10,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Scalar::Util' => '1.14',
                            'Test::Exception' => '0.21',
+                           'IO::Scalar' => '0.01',
                            'Fcntl' => '0.01',
                            'Test::More' => '0.47',
                            'Test::Warn' => '0.08',
