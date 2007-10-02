@@ -16,7 +16,6 @@ WriteMakefile
                            'Test::Warn' => '0.08',
                            'File::Temp' => '0.01',
                            'Digest::MD5' => '1.00',
-                           'Clone' => '0.01',
                            'File::Path' => '0.01',
                            'Test::Deep' => '0.095',
                            'FileHandle::Fmode' => '0.05'
