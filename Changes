@@ -1,5 +1,9 @@
 Revision history for DBM::Deep.
 
+1.0010 May 27 15:00:00 2008 EST
+    - (This version is compatible with 1.0010)
+    - A test has the wrong plan.
+
 1.0010 May 27 12:00:00 2008 EST
     - (This version is compatible with 1.0009)
     - Fix for RT#35140 (invalid POD links)
