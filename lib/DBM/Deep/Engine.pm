@@ -5,9 +5,13 @@ use 5.006_000;
 use strict;
 use warnings;
 
-our $VERSION = q(1.0009);
+our $VERSION = q(1.0010);
 
+# Never import symbols into our namespace. We are a class, not a library.
+# -RobK, 2008-05-27
 use Scalar::Util ();
+
+#use Data::Dumper ();
 
 # File-wide notes:
 # * Every method in here assumes that the storage has been appropriately
@@ -271,7 +275,7 @@ sub write_value {
         or DBM::Deep->_throw_error( "Cannot write to a deleted spot in DBM::Deep." );
 
     if ( $sector->staleness != $obj->_staleness ) {
-        DBM::Deep->_throw_error( "Cannot write to a deleted spot in DBM::Deep.n" );
+        DBM::Deep->_throw_error( "Cannot write to a deleted spot in DBM::Deep." );
     }
 
     my ($class, $type);
@@ -279,27 +283,47 @@ sub write_value {
         $class = 'DBM::Deep::Engine::Sector::Null';
     }
     elsif ( $r eq 'ARRAY' || $r eq 'HASH' ) {
-        my $is_dbm_deep = eval { local $SIG{'__DIE__'}; $value->isa( 'DBM::Deep' ); };
-        if ( $is_dbm_deep ) {
-            if ( $value->_engine->storage == $self->storage ) {
-                my $value_sector = $self->_load_sector( $value->_base_offset );
-                $sector->write_data({
-                    key     => $key,
-                    key_md5 => $self->_apply_digest( $key ),
-                    value   => $value_sector,
-                });
-                $value_sector->increment_refcount;
+        my $tmpvar;
+        if ( $r eq 'ARRAY' ) {
+            $tmpvar = tied @$value;
+        } elsif ( $r eq 'HASH' ) {
+            $tmpvar = tied %$value;
+        }
+
+        if ( $tmpvar ) {
+            my $is_dbm_deep = eval { local $SIG{'__DIE__'}; $tmpvar->isa( 'DBM::Deep' ); };
+
+            unless ( $is_dbm_deep ) {
+                DBM::Deep->_throw_error( "Cannot store something that is tied." );
+            }
+
+            unless ( $tmpvar->_engine->storage == $self->storage ) {
+                DBM::Deep->_throw_error( "Cannot store values across DBM::Deep files. Please use export() instead." );
+            }
+
+            # First, verify if we're storing the same thing to this spot. If we are, then
+            # this should be a no-op. -EJS, 2008-05-19
+            my $loc = $sector->get_data_location_for({
+                key_md5 => $self->_apply_digest( $key ),
+                allow_head => 1,
+            });
+
+            if ( defined($loc) && $loc == $tmpvar->_base_offset ) {
                 return 1;
             }
 
-            DBM::Deep->_throw_error( "Cannot store values across DBM::Deep files. Please use export() instead." );
+            #XXX Can this use $loc?
+            my $value_sector = $self->_load_sector( $tmpvar->_base_offset );
+            $sector->write_data({
+                key     => $key,
+                key_md5 => $self->_apply_digest( $key ),
+                value   => $value_sector,
+            });
+            $value_sector->increment_refcount;
+
+            return 1;
         }
-        if ( $r eq 'ARRAY' && tied(@$value) ) {
-            DBM::Deep->_throw_error( "Cannot store something that is tied." );
-        }
-        if ( $r eq 'HASH' && tied(%$value) ) {
-            DBM::Deep->_throw_error( "Cannot store something that is tied." );
-        }
+
         $class = 'DBM::Deep::Engine::Sector::Reference';
         $type = substr( $r, 0, 1 );
     }
@@ -1296,6 +1320,8 @@ sub chain_loc {
 
 sub data {
     my $self = shift;
+#    my ($args) = @_;
+#    $args ||= {};
 
     my $data;
     while ( 1 ) {
@@ -1388,7 +1414,7 @@ sub _init {
 
 sub staleness { $_[0]{staleness} }
 
-sub get_data_for {
+sub get_data_location_for {
     my $self = shift;
     my ($args) = @_;
 
@@ -1411,6 +1437,16 @@ sub get_data_for {
     my $location = $blist->get_data_location_for({
         allow_head => $args->{allow_head},
     }) or return;
+
+    return $location;
+}
+
+sub get_data_for {
+    my $self = shift;
+    my ($args) = @_;
+
+    my $location = $self->get_data_location_for( $args )
+        or return;
 
     return $self->engine->_load_sector( $location );
 }
@@ -1516,7 +1552,7 @@ sub delete_key {
         $blist->mark_deleted( $args );
 
         if ( $old_value ) {
-            $data = $old_value->data;
+            $data = $old_value->data({ export => 1 });
             $old_value->free;
         }
     }
@@ -1725,9 +1761,12 @@ sub get_classname {
 
 sub data {
     my $self = shift;
+    my ($args) = @_;
+    $args ||= {};
 
-    unless ( $self->engine->cache->{ $self->offset } ) {
-        my $new_obj = DBM::Deep->new({
+    my $obj;
+    unless ( $obj = $self->engine->cache->{ $self->offset } ) {
+        $obj = DBM::Deep->new({
             type        => $self->type,
             base_offset => $self->offset,
             staleness   => $self->staleness,
@@ -1738,13 +1777,24 @@ sub data {
         if ( $self->engine->storage->{autobless} ) {
             my $classname = $self->get_classname;
             if ( defined $classname ) {
-                bless $new_obj, $classname;
+                bless $obj, $classname;
             }
         }
 
-        $self->engine->cache->{$self->offset} = $new_obj;
+        $self->engine->cache->{$self->offset} = $obj;
     }
-    return $self->engine->cache->{$self->offset};
+
+    # We're not exporting, so just return.
+    unless ( $args->{export} ) {
+        return $obj;
+    }
+
+    # We shouldn't export if this is still referred to.
+    if ( $self->get_refcount > 1 ) {
+        return $obj;
+    }
+
+    return $obj->export;
 }
 
 sub free {
@@ -2089,7 +2139,7 @@ sub delete_md5 {
     $key_sector->free;
 
     my $data_sector = $self->engine->_load_sector( $location );
-    my $data = $data_sector->data;
+    my $data = $data_sector->data({ export => 1 });
     $data_sector->free;
 
     return $data;
