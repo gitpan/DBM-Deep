@@ -18,8 +18,7 @@ WriteMakefile
                            'File::Temp' => '0.01',
                            'Digest::MD5' => '1.00',
                            'File::Path' => '0.01',
-                           'Test::Deep' => '0.095',
-                           'FileHandle::Fmode' => '0.05'
+                           'Test::Deep' => '0.095'
                          }
         )
 ;
