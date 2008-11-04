@@ -3,9 +3,7 @@ package DBM::Deep::Hash;
 use 5.006_000;
 
 use strict;
-use warnings;
-
-our $VERSION = q(1.0013);
+use warnings FATAL => 'all';
 
 use base 'DBM::Deep';
 
@@ -30,8 +28,8 @@ sub TIEHASH {
 sub FETCH {
     my $self = shift->_get_self;
     DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
-    my $key = ($self->_storage->{filter_store_key})
-        ? $self->_storage->{filter_store_key}->($_[0])
+    my $key = ($self->_engine->storage->{filter_store_key})
+        ? $self->_engine->storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::FETCH( $key, $_[0] );
@@ -40,8 +38,8 @@ sub FETCH {
 sub STORE {
     my $self = shift->_get_self;
     DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
-    my $key = ($self->_storage->{filter_store_key})
-        ? $self->_storage->{filter_store_key}->($_[0])
+    my $key = ($self->_engine->storage->{filter_store_key})
+        ? $self->_engine->storage->{filter_store_key}->($_[0])
         : $_[0];
     my $value = $_[1];
 
@@ -51,8 +49,8 @@ sub STORE {
 sub EXISTS {
     my $self = shift->_get_self;
     DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
-    my $key = ($self->_storage->{filter_store_key})
-        ? $self->_storage->{filter_store_key}->($_[0])
+    my $key = ($self->_engine->storage->{filter_store_key})
+        ? $self->_engine->storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::EXISTS( $key );
@@ -61,8 +59,8 @@ sub EXISTS {
 sub DELETE {
     my $self = shift->_get_self;
     DBM::Deep->_throw_error( "Cannot use an undefined hash key." ) unless defined $_[0];
-    my $key = ($self->_storage->{filter_store_key})
-        ? $self->_storage->{filter_store_key}->($_[0])
+    my $key = ($self->_engine->storage->{filter_store_key})
+        ? $self->_engine->storage->{filter_store_key}->($_[0])
         : $_[0];
 
     return $self->SUPER::DELETE( $key, $_[0] );
@@ -74,17 +72,14 @@ sub FIRSTKEY {
     ##
     my $self = shift->_get_self;
 
-    ##
-    # Request shared lock for reading
-    ##
-    $self->lock( $self->LOCK_SH );
+    $self->lock_shared;
     
     my $result = $self->_engine->get_next_key( $self );
     
-    $self->unlock();
+    $self->unlock;
     
-    return ($result && $self->_storage->{filter_fetch_key})
-        ? $self->_storage->{filter_fetch_key}->($result)
+    return ($result && $self->_engine->storage->{filter_fetch_key})
+        ? $self->_engine->storage->{filter_fetch_key}->($result)
         : $result;
 }
 
@@ -94,21 +89,18 @@ sub NEXTKEY {
     ##
     my $self = shift->_get_self;
 
-    my $prev_key = ($self->_storage->{filter_store_key})
-        ? $self->_storage->{filter_store_key}->($_[0])
+    my $prev_key = ($self->_engine->storage->{filter_store_key})
+        ? $self->_engine->storage->{filter_store_key}->($_[0])
         : $_[0];
 
-    ##
-    # Request shared lock for reading
-    ##
-    $self->lock( $self->LOCK_SH );
+    $self->lock_shared;
     
     my $result = $self->_engine->get_next_key( $self, $prev_key );
     
-    $self->unlock();
+    $self->unlock;
     
-    return ($result && $self->_storage->{filter_fetch_key})
-        ? $self->_storage->{filter_fetch_key}->($result)
+    return ($result && $self->_engine->storage->{filter_fetch_key})
+        ? $self->_engine->storage->{filter_fetch_key}->($result)
         : $result;
 }
 

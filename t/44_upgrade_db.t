@@ -11,16 +11,16 @@ BEGIN {
         if ( $^O =~ /bsd/i );
 
     my @failures;
-    eval { use Pod::Usage 1.3; }; push @failures, 'Pod::Usage' if $@;
-    eval { use IO::Scalar; }; push @failures, 'IO::Scalar' if $@;
-    eval { use FileHandle::Fmode; }; push @failures, 'FileHandle::Fmode' if $@;
+    eval "use Pod::Usage 1.3;"; push @failures, 'Pod::Usage' if $@;
+    eval "use IO::Scalar;"; push @failures, 'IO::Scalar' if $@;
+    eval "use FileHandle::Fmode;"; push @failures, 'FileHandle::Fmode' if $@;
     if ( @failures ) {
         my $missing = join ',', @failures;
         plan skip_all => "'$missing' must be installed to run these tests";
     }
 }
 
-plan tests => 292;
+plan tests => 302;
 
 use t::common qw( new_fh );
 use File::Spec;
@@ -72,7 +72,8 @@ my @output_versions = (
     '0.981', '0.982', '0.983',
     '0.99_01', '0.99_02', '0.99_03', '0.99_04',
     '1.00', '1.000', '1.0000', '1.0001', '1.0002',
-    '1.0003', '1.0004', '1.0005', '1.0006', '1.0007', '1.0008', '1.0009', '1.0010', '1.0011', '1.0012', '1.0013',
+    '1.0003', '1.0004', '1.0005', '1.0006', '1.0007', '1.0008', '1.0009', '1.0010',
+    '1.0011', '1.0012', '1.0013', '1.0014',
 );
 
 foreach my $input_filename (
@@ -86,12 +87,15 @@ foreach my $input_filename (
 
     foreach my $v ( @output_versions ) {
         my (undef, $output_filename) = new_fh();
+
         my $output = run_prog(
             $PROG,
             "-input $input_filename",
             "-output $output_filename",
             "-version $v",
         );
+
+        #warn "Testing $input_filename against $v\n";
 
         # Clone was removed as a requirement in 1.0006
         if ( $output =~ /Can\'t locate Clone\.pm in \@INC/ ) {
@@ -122,12 +126,12 @@ foreach my $input_filename (
 
         # Now, read the output file with the right version.
         ok( !$output, "A successful run produces no output" );
-        die "$output\n" if $output;
+        die "'$input_filename' -> '$v' : $output\n" if $output;
 
         my $db;
-        if ( $v =~ /^1\.001[0-3]/ || $v =~ /^1\.000[3-9]/ ) {
+        if ( $v =~ /^1\.001[0-4]/ || $v =~ /^1\.000[3-9]/ ) {
             push @INC, 'lib';
-            eval "use DBM::Deep";
+            eval "use DBM::Deep $v"; die $@ if $@;
             $db = DBM::Deep->new( $output_filename );
         }
         elsif ( $v =~ /^1\.000?[0-2]?/ ) {

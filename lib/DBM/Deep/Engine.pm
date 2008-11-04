@@ -3,9 +3,7 @@ package DBM::Deep::Engine;
 use 5.006_000;
 
 use strict;
-use warnings;
-
-our $VERSION = q(1.0013);
+use warnings FATAL => 'all';
 
 # Never import symbols into our namespace. We are a class, not a library.
 # -RobK, 2008-05-27
@@ -46,6 +44,9 @@ my %StP = (
 sub new {
     my $class = shift;
     my ($args) = @_;
+
+    $args->{storage} = DBM::Deep::File->new( $args )
+        unless exists $args->{storage};
 
     my $self = bless {
         byte_size   => 4,
@@ -438,6 +439,8 @@ sub setup_fh {
             $obj->{staleness} = $initial_reference->staleness;
         }
     }
+
+    $self->storage->set_inode;
 
     return 1;
 }
@@ -862,6 +865,48 @@ sub _request_sector {
     );
 
     return $loc;
+}
+
+################################################################################
+
+sub flush {
+    my $self = shift;
+
+#    my $sectors = $self->dirty_sectors;
+#    for my $offset (sort { $a <=> $b } keys %{ $sectors }) {
+#        $self->storage->print_at( $offset, $self->sector_cache->{$offset} );
+#    }
+
+    # Why do we need to have the storage flush? Shouldn't autoflush take care of things?
+    # -RobK, 2008-06-26
+    $self->storage->flush;
+
+#    $self->clear_dirty_sectors;
+
+#    $self->clear_sector_cache;
+}
+
+sub lock_exclusive {
+    my $self = shift;
+    my ($obj) = @_;
+    return $self->storage->lock_exclusive( $obj );
+}
+
+sub lock_shared {
+    my $self = shift;
+    my ($obj) = @_;
+    return $self->storage->lock_shared( $obj );
+}
+
+sub unlock {
+    my $self = shift;
+    my ($obj) = @_;
+
+    my $rv = $self->storage->unlock( $obj );
+
+    $self->flush if $rv;
+
+    return $rv;
 }
 
 ################################################################################

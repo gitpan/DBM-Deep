@@ -3,9 +3,7 @@ package DBM::Deep::File;
 use 5.006_000;
 
 use strict;
-use warnings;
-
-our $VERSION = q(1.0013);
+use warnings FATAL => 'all';
 
 use Fcntl qw( :DEFAULT :flock :seek );
 
@@ -89,6 +87,13 @@ sub close {
     return 1;
 }
 
+sub size {
+    my $self = shift;
+
+    return 0 unless $self->{fh};
+    return( (-s $self->{fh}) - $self->{file_offset} );
+}
+
 sub set_inode {
     my $self = shift;
 
@@ -170,6 +175,18 @@ sub request_space {
 # times before unlock(), then the same number of unlocks() must
 # be called before the lock is released.
 ##
+sub lock_exclusive {
+    my $self = shift;
+    my ($obj) = @_;
+    return $self->lock( $obj, LOCK_EX );
+}
+
+sub lock_shared {
+    my $self = shift;
+    my ($obj) = @_;
+    return $self->lock( $obj, LOCK_SH );
+}
+
 sub lock {
     my $self = shift;
     my ($obj, $type) = @_;
@@ -229,9 +246,13 @@ sub unlock {
 
     if ($self->{locking} && $self->{locked} > 0) {
         $self->{locked}--;
-        if (!$self->{locked}) { flock($self->{fh}, LOCK_UN); }
 
-        return 1;
+        if (!$self->{locked}) {
+            flock($self->{fh}, LOCK_UN);
+            return 1;
+        }
+
+        return;
     }
 
     return;

@@ -385,7 +385,7 @@ value.
 
   $db->clear(); # hashes or arrays
 
-=item * lock() / unlock()
+=item * lock() / unlock() / lock_exclusive() / lock_shared()
 
 q.v. L</LOCKING> for more info.
 
@@ -555,12 +555,12 @@ NFS> below for more.
 =head2 Explicit Locking
 
 You can explicitly lock a database, so it remains locked for multiple
-actions. This is done by calling the C<lock()> method, and passing an
-optional lock mode argument (defaults to exclusive mode). This is particularly
-useful for things like counters, where the current value needs to be fetched,
-then incremented, then stored again.
+actions. This is done by calling the C<lock_exclusive()> method (for when you
+want to write) or the C<lock_shared()> method (for when you want to read).
+This is particularly useful for things like counters, where the current value
+needs to be fetched, then incremented, then stored again.
 
-  $db->lock();
+  $db->lock_exclusive();
   my $counter = $db->get("counter");
   $counter++;
   $db->put("counter", $counter);
@@ -568,18 +568,8 @@ then incremented, then stored again.
 
   # or...
 
-  $db->lock();
+  $db->lock_exclusive();
   $db->{counter}++;
-  $db->unlock();
-
-You can pass C<lock()> an optional argument, which specifies which mode to use
-(exclusive or shared). Use one of these two constants:
-C<DBM::Deep-E<gt>LOCK_EX> or C<DBM::Deep-E<gt>LOCK_SH>. These are passed
-directly to C<flock()>, and are the same as the constants defined in Perl's
-L<Fcntl> module.
-
-  $db->lock( $db->LOCK_SH );
-  # something here
   $db->unlock();
 
 =head2 Win32/Cygwin

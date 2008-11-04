@@ -3,12 +3,11 @@ package DBM::Deep;
 use 5.006_000;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
-our $VERSION = q(1.0013);
+our $VERSION = q(1.0014);
 
 use Data::Dumper ();
-use Fcntl qw( :flock );
 use Scalar::Util ();
 
 use DBM::Deep::Engine;
@@ -83,9 +82,6 @@ sub _init {
     my $class = shift;
     my ($args) = @_;
 
-    $args->{storage} = DBM::Deep::File->new( $args )
-        unless exists $args->{storage};
-
     # locking implicitly enables autoflush
     if ($args->{locking}) { $args->{autoflush} = 1; }
 
@@ -94,8 +90,6 @@ sub _init {
         type        => TYPE_HASH,
         base_offset => undef,
         staleness   => undef,
-
-        storage     => undef,
         engine      => undef,
     }, $class;
 
@@ -111,9 +105,8 @@ sub _init {
     eval {
       local $SIG{'__DIE__'};
 
-      $self->lock;
+      $self->lock_exclusive;
       $self->_engine->setup_fh( $self );
-      $self->_storage->set_inode;
       $self->unlock;
     }; if ( $@ ) {
       my $e = $@;
@@ -136,14 +129,19 @@ sub TIEARRAY {
     return DBM::Deep::Array->TIEARRAY( @_ );
 }
 
-sub lock {
+sub lock_exclusive {
     my $self = shift->_get_self;
-    return $self->_storage->lock( $self, @_ );
+    return $self->_engine->lock_exclusive( $self, @_ );
+}
+*lock = \&lock_exclusive;
+sub lock_shared {
+    my $self = shift->_get_self;
+    return $self->_engine->lock_shared( $self, @_ );
 }
 
 sub unlock {
     my $self = shift->_get_self;
-    return $self->_storage->unlock( $self, @_ );
+    return $self->_engine->unlock( $self, @_ );
 }
 
 sub _copy_value {
@@ -203,9 +201,9 @@ sub export {
 
     my $temp = $self->_repr;
 
-    $self->lock();
+    $self->lock_exclusive;
     $self->_copy_node( $temp );
-    $self->unlock();
+    $self->unlock;
 
     my $classname = $self->_engine->get_classname( $self );
     if ( defined $classname ) {
@@ -307,14 +305,14 @@ sub optimize {
     my $self = shift->_get_self;
 
 #XXX Need to create a new test for this
-#    if ($self->_storage->{links} > 1) {
+#    if ($self->_engine->storage->{links} > 1) {
 #        $self->_throw_error("Cannot optimize: reference count is greater than 1");
 #    }
 
     #XXX Do we have to lock the tempfile?
 
     #XXX Should we use tempfile() here instead of a hard-coded name?
-    my $temp_filename = $self->_storage->{file} . '.tmp';
+    my $temp_filename = $self->_engine->storage->{file} . '.tmp';
     my $db_temp = DBM::Deep->new(
         file => $temp_filename,
         type => $self->_type,
@@ -325,16 +323,16 @@ sub optimize {
         )),
     );
 
-    $self->lock();
+    $self->lock_exclusive;
     $self->_engine->clear_cache;
     $self->_copy_node( $db_temp );
-    $db_temp->_storage->close;
+    $db_temp->_engine->storage->close;
     undef $db_temp;
 
     ##
     # Attempt to copy user, group and permissions over to new file
     ##
-    $self->_storage->copy_stats( $temp_filename );
+    $self->_engine->storage->copy_stats( $temp_filename );
 
     # q.v. perlport for more information on this variable
     if ( $^O eq 'MSWin32' || $^O eq 'cygwin' ) {
@@ -344,23 +342,23 @@ sub optimize {
         # before it is overwritten with rename().  This could be redone
         # with a soft copy.
         ##
-        $self->unlock();
-        $self->_storage->close;
+        $self->unlock;
+        $self->_engine->storage->close;
     }
 
-    if (!rename $temp_filename, $self->_storage->{file}) {
+    if (!rename $temp_filename, $self->_engine->storage->{file}) {
         unlink $temp_filename;
-        $self->unlock();
+        $self->unlock;
         $self->_throw_error("Optimize failed: Cannot copy temp file over original: $!");
     }
 
-    $self->unlock();
-    $self->_storage->close;
+    $self->unlock;
+    $self->_engine->storage->close;
 
-    $self->_storage->open;
-    $self->lock();
+    $self->_engine->storage->open;
+    $self->lock_exclusive;
     $self->_engine->setup_fh( $self );
-    $self->unlock();
+    $self->unlock;
 
     return 1;
 }
@@ -375,7 +373,6 @@ sub clone {
         type        => $self->_type,
         base_offset => $self->_base_offset,
         staleness   => $self->_staleness,
-        storage     => $self->_storage,
         engine      => $self->_engine,
     );
 }
@@ -396,7 +393,7 @@ sub clone {
         my $func = shift;
 
         if ( $is_legal_filter{$type} ) {
-            $self->_storage->{"filter_$type"} = $func;
+            $self->_engine->storage->{"filter_$type"} = $func;
             return 1;
         }
 
@@ -411,17 +408,32 @@ sub clone {
 
 sub begin_work {
     my $self = shift->_get_self;
-    return $self->_engine->begin_work( $self, @_ );
+    $self->lock_exclusive;
+    my $rv = eval { $self->_engine->begin_work( $self, @_ ) };
+    my $e = $@;
+    $self->unlock;
+    die $e if $e;
+    return $rv;
 }
 
 sub rollback {
     my $self = shift->_get_self;
-    return $self->_engine->rollback( $self, @_ );
+    $self->lock_exclusive;
+    my $rv = eval { $self->_engine->rollback( $self, @_ ) };
+    my $e = $@;
+    $self->unlock;
+    die $e if $e;
+    return $rv;
 }
 
 sub commit {
     my $self = shift->_get_self;
-    return $self->_engine->commit( $self, @_ );
+    $self->lock_exclusive;
+    my $rv = eval { $self->_engine->commit( $self, @_ ) };
+    my $e = $@;
+    $self->unlock;
+    die $e if $e;
+    return $rv;
 }
 
 ##
@@ -431,11 +443,6 @@ sub commit {
 sub _engine {
     my $self = $_[0]->_get_self;
     return $self->{engine};
-}
-
-sub _storage {
-    my $self = $_[0]->_get_self;
-    return $self->{storage};
 }
 
 sub _type {
@@ -473,26 +480,23 @@ sub STORE {
     ##
     my $self = shift->_get_self;
     my ($key, $value) = @_;
-    warn "STORE($self, $key, $value)\n" if DEBUG;
+    warn "STORE($self, $key, @{[defined$value?$value:'undef']})\n" if DEBUG;
 
-    unless ( $self->_storage->is_writable ) {
+    unless ( $self->_engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
     }
 
-    ##
-    # Request exclusive lock for writing
-    ##
-    $self->lock( LOCK_EX );
+    $self->lock_exclusive;
 
     # User may be storing a complex value, in which case we do not want it run
     # through the filtering system.
-    if ( !ref($value) && $self->_storage->{filter_store_value} ) {
-        $value = $self->_storage->{filter_store_value}->( $value );
+    if ( !ref($value) && $self->_engine->storage->{filter_store_value} ) {
+        $value = $self->_engine->storage->{filter_store_value}->( $value );
     }
 
     $self->_engine->write_value( $self, $key, $value);
 
-    $self->unlock();
+    $self->unlock;
 
     return 1;
 }
@@ -505,19 +509,16 @@ sub FETCH {
     my ($key) = @_;
     warn "FETCH($self,$key)\n" if DEBUG;
 
-    ##
-    # Request shared lock for reading
-    ##
-    $self->lock( LOCK_SH );
+    $self->lock_shared;
 
     my $result = $self->_engine->read_value( $self, $key);
 
-    $self->unlock();
+    $self->unlock;
 
     # Filters only apply to scalar values, so the ref check is making
     # sure the fetched bucket is a scalar, not a child hash or array.
-    return ($result && !ref($result) && $self->_storage->{filter_fetch_value})
-        ? $self->_storage->{filter_fetch_value}->($result)
+    return ($result && !ref($result) && $self->_engine->storage->{filter_fetch_value})
+        ? $self->_engine->storage->{filter_fetch_value}->($result)
         : $result;
 }
 
@@ -529,25 +530,22 @@ sub DELETE {
     my ($key) = @_;
     warn "DELETE($self,$key)\n" if DEBUG;
 
-    unless ( $self->_storage->is_writable ) {
+    unless ( $self->_engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
     }
 
-    ##
-    # Request exclusive lock for writing
-    ##
-    $self->lock( LOCK_EX );
+    $self->lock_exclusive;
 
     ##
     # Delete bucket
     ##
     my $value = $self->_engine->delete_key( $self, $key);
 
-    if (defined $value && !ref($value) && $self->_storage->{filter_fetch_value}) {
-        $value = $self->_storage->{filter_fetch_value}->($value);
+    if (defined $value && !ref($value) && $self->_engine->storage->{filter_fetch_value}) {
+        $value = $self->_engine->storage->{filter_fetch_value}->($value);
     }
 
-    $self->unlock();
+    $self->unlock;
 
     return $value;
 }
@@ -560,14 +558,11 @@ sub EXISTS {
     my ($key) = @_;
     warn "EXISTS($self,$key)\n" if DEBUG;
 
-    ##
-    # Request shared lock for reading
-    ##
-    $self->lock( LOCK_SH );
+    $self->lock_shared;
 
     my $result = $self->_engine->key_exists( $self, $key );
 
-    $self->unlock();
+    $self->unlock;
 
     return $result;
 }
@@ -579,14 +574,11 @@ sub CLEAR {
     my $self = shift->_get_self;
     warn "CLEAR($self)\n" if DEBUG;
 
-    unless ( $self->_storage->is_writable ) {
+    unless ( $self->_engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
     }
 
-    ##
-    # Request exclusive lock for writing
-    ##
-    $self->lock( LOCK_EX );
+    $self->lock_exclusive;
 
     #XXX Rewrite this dreck to do it in the engine as a tight loop vs.
     # iterating over keys - such a WASTE - is this required for transactional
@@ -608,7 +600,7 @@ sub CLEAR {
         $self->STORESIZE( 0 );
     }
 
-    $self->unlock();
+    $self->unlock;
 
     return 1;
 }

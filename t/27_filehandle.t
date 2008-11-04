@@ -1,7 +1,8 @@
-##
-# DBM::Deep Test
-##
+use 5.006_000;
+
 use strict;
+use warnings FATAL => 'all';
+
 use Test::More tests => 14;
 use Test::Exception;
 use t::common qw( new_fh );
@@ -34,7 +35,7 @@ use_ok( 'DBM::Deep' );
             skip( "No inode tests on Win32", 1 )
                 if ( $^O eq 'MSWin32' || $^O eq 'cygwin' );
             my $db_obj = $db->_get_self;
-            ok( $db_obj->_storage->{inode}, "The inode has been set" );
+            ok( $db_obj->_engine->storage->{inode}, "The inode has been set" );
         }
 
         close($fh);
@@ -49,7 +50,7 @@ use_ok( 'DBM::Deep' );
     print $fh "#!$^X\n";
     print $fh <<'__END_FH__';
 use strict;
-use Test::More no_plan => 1;
+use Test::More 'no_plan';
 Test::More->builder->no_ending(1);
 Test::More->builder->{Curr_Test} = 12;
 

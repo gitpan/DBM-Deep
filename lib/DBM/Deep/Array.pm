@@ -35,7 +35,7 @@ sub FETCH {
     my $self = shift->_get_self;
     my ($key) = @_;
 
-    $self->lock( $self->LOCK_SH );
+    $self->lock_shared;
 
     if ( !defined $key ) {
         $self->unlock;
@@ -66,7 +66,7 @@ sub STORE {
     my $self = shift->_get_self;
     my ($key, $value) = @_;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $size;
     my $idx_is_numeric;
@@ -107,7 +107,7 @@ sub EXISTS {
     my $self = shift->_get_self;
     my ($key) = @_;
 
-    $self->lock( $self->LOCK_SH );
+    $self->lock_shared;
 
     if ( !defined $key ) {
         $self->unlock;
@@ -139,7 +139,7 @@ sub DELETE {
     my ($key) = @_;
     warn "ARRAY::DELETE($self,$key)\n" if DBM::Deep::DEBUG;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $size = $self->FETCHSIZE;
     if ( !defined $key ) {
@@ -177,14 +177,14 @@ sub DELETE {
 sub FETCHSIZE {
     my $self = shift->_get_self;
 
-    $self->lock( $self->LOCK_SH );
+    $self->lock_shared;
 
-    my $SAVE_FILTER = $self->_storage->{filter_fetch_value};
-    $self->_storage->{filter_fetch_value} = undef;
+    my $SAVE_FILTER = $self->_engine->storage->{filter_fetch_value};
+    $self->_engine->storage->{filter_fetch_value} = undef;
 
     my $size = $self->FETCH('length') || 0;
 
-    $self->_storage->{filter_fetch_value} = $SAVE_FILTER;
+    $self->_engine->storage->{filter_fetch_value} = $SAVE_FILTER;
 
     $self->unlock;
 
@@ -195,14 +195,14 @@ sub STORESIZE {
     my $self = shift->_get_self;
     my ($new_length) = @_;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
-    my $SAVE_FILTER = $self->_storage->{filter_store_value};
-    $self->_storage->{filter_store_value} = undef;
+    my $SAVE_FILTER = $self->_engine->storage->{filter_store_value};
+    $self->_engine->storage->{filter_store_value} = undef;
 
     my $result = $self->STORE('length', $new_length, 'length');
 
-    $self->_storage->{filter_store_value} = $SAVE_FILTER;
+    $self->_engine->storage->{filter_store_value} = $SAVE_FILTER;
 
     $self->unlock;
 
@@ -212,7 +212,7 @@ sub STORESIZE {
 sub POP {
     my $self = shift->_get_self;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $length = $self->FETCHSIZE();
 
@@ -233,7 +233,7 @@ sub POP {
 sub PUSH {
     my $self = shift->_get_self;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $length = $self->FETCHSIZE();
 
@@ -260,7 +260,7 @@ sub SHIFT {
     my $self = shift->_get_self;
     warn "SHIFT($self)\n" if DBM::Deep::DEBUG;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $length = $self->FETCHSIZE();
 
@@ -289,7 +289,7 @@ sub UNSHIFT {
     my $self = shift->_get_self;
     my @new_elements = @_;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $length = $self->FETCHSIZE();
     my $new_size = scalar @new_elements;
@@ -314,7 +314,7 @@ sub UNSHIFT {
 sub SPLICE {
     my $self = shift->_get_self;
 
-    $self->lock( $self->LOCK_EX );
+    $self->lock_exclusive;
 
     my $length = $self->FETCHSIZE();
 
