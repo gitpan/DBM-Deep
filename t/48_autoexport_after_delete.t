@@ -1,21 +1,16 @@
-use 5.006;
-
 use strict;
 use warnings FATAL => 'all';
 
-use Test::More tests => 2;
+use Test::More;
 use Test::Deep;
 
-use t::common qw( new_fh );
+use t::common qw( new_dbm );
 
 use_ok( 'DBM::Deep' );
 
-{
-    my ($fh, $filename) = t::common::new_fh();
-    my $db = DBM::Deep->new(
-        file => $filename,
-        fh => $fh,
-    );
+my $dbm_factory = new_dbm();
+while ( my $dbm_maker = $dbm_factory->() ) {
+    my $db = $dbm_maker->();
 
     # Add a self-referencing connection to test export
     my %struct = (
@@ -59,4 +54,4 @@ use_ok( 'DBM::Deep' );
     );
 }
 
-__END__
+done_testing;

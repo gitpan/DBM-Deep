@@ -5,13 +5,12 @@ use 5.006_000;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = q(1.0014);
+our $VERSION = q(1.0019_001);
 
-use Data::Dumper ();
 use Scalar::Util ();
 
-use DBM::Deep::Engine;
-use DBM::Deep::File;
+use DBM::Deep::Engine::DBI ();
+use DBM::Deep::Engine::File ();
 
 use overload
     '""' => sub { overload::StrVal( $_[0] ) },
@@ -19,9 +18,6 @@ use overload
 
 use constant DEBUG => 0;
 
-##
-# Setup constants for users to pass to new()
-##
 sub TYPE_HASH   () { DBM::Deep::Engine->SIG_HASH  }
 sub TYPE_ARRAY  () { DBM::Deep::Engine->SIG_ARRAY }
 
@@ -49,19 +45,14 @@ sub _get_args {
     return $args;
 }
 
+# Class constructor method for Perl OO interface.
+# Calls tie() and returns blessed reference to tied hash or array,
+# providing a hybrid OO/tie interface.
 sub new {
-    ##
-    # Class constructor method for Perl OO interface.
-    # Calls tie() and returns blessed reference to tied hash or array,
-    # providing a hybrid OO/tie interface.
-    ##
     my $class = shift;
     my $args = $class->_get_args( @_ );
-
-    ##
-    # Check if we want a tied hash or array.
-    ##
     my $self;
+    
     if (defined($args->{type}) && $args->{type} eq TYPE_ARRAY) {
         $class = 'DBM::Deep::Array';
         require DBM::Deep::Array;
@@ -93,8 +84,16 @@ sub _init {
         engine      => undef,
     }, $class;
 
-    $args->{engine} = DBM::Deep::Engine->new( { %{$args}, obj => $self } )
-        unless exists $args->{engine};
+    unless ( exists $args->{engine} ) {
+        my $class = exists $args->{dbi}
+            ? 'DBM::Deep::Engine::DBI'
+            : 'DBM::Deep::Engine::File';
+
+        $args->{engine} = $class->new({
+            %{$args},
+            obj => $self,
+        });
+    }
 
     # Grab the parameters we want to use
     foreach my $param ( keys %$self ) {
@@ -103,15 +102,15 @@ sub _init {
     }
 
     eval {
-      local $SIG{'__DIE__'};
+        local $SIG{'__DIE__'};
 
-      $self->lock_exclusive;
-      $self->_engine->setup_fh( $self );
-      $self->unlock;
+        $self->lock_exclusive;
+        $self->_engine->setup( $self );
+        $self->unlock;
     }; if ( $@ ) {
-      my $e = $@;
-      eval { local $SIG{'__DIE__'}; $self->unlock; };
-      die $e;
+        my $e = $@;
+        eval { local $SIG{'__DIE__'}; $self->unlock; };
+        die $e;
     }
 
     return $self;
@@ -152,18 +151,19 @@ sub _copy_value {
         ${$spot} = $value;
     }
     else {
-        # This assumes hash or array only. This is a bad assumption moving forward.
-        # -RobK, 2008-05-27
         my $r = Scalar::Util::reftype( $value );
         my $tied;
         if ( $r eq 'ARRAY' ) {
             $tied = tied(@$value);
         }
-        else {
+        elsif ( $r eq 'HASH' ) {
             $tied = tied(%$value);
         }
+        else {
+            __PACKAGE__->_throw_error( "Unknown type for '$value'" );
+        }
 
-        if ( eval { local $SIG{__DIE__}; $tied->isa( 'DBM::Deep' ) } ) {
+        if ( eval { local $SIG{__DIE__}; $tied->isa( __PACKAGE__ ) } ) {
             ${$spot} = $tied->_repr;
             $tied->_copy_node( ${$spot} );
         }
@@ -177,7 +177,7 @@ sub _copy_value {
         }
 
         my $c = Scalar::Util::blessed( $value );
-        if ( defined $c && !$c->isa( 'DBM::Deep') ) {
+        if ( defined $c && !$c->isa( __PACKAGE__ ) ) {
             ${$spot} = bless ${$spot}, $c
         }
     }
@@ -194,9 +194,6 @@ sub _copy_value {
 #}
 
 sub export {
-    ##
-    # Recursively export into standard Perl hashes and arrays.
-    ##
     my $self = shift->_get_self;
 
     my $temp = $self->_repr;
@@ -223,25 +220,24 @@ sub _check_legality {
     return $r if 'HASH' eq $r;
     return $r if 'ARRAY' eq $r;
 
-    DBM::Deep->_throw_error(
+    __PACKAGE__->_throw_error(
         "Storage of references of type '$r' is not supported."
     );
 }
 
 sub import {
-    # Perl calls import() on use -- ignore
-    return if !ref $_[0];
+    return if !ref $_[0]; # Perl calls import() on use -- ignore
 
     my $self = shift->_get_self;
     my ($struct) = @_;
 
     my $type = $self->_check_legality( $struct );
     if ( !$type ) {
-        DBM::Deep->_throw_error( "Cannot import a scalar" );
+        __PACKAGE__->_throw_error( "Cannot import a scalar" );
     }
 
     if ( substr( $type, 0, 1 ) ne $self->_type ) {
-        DBM::Deep->_throw_error(
+        __PACKAGE__->_throw_error(
             "Cannot import " . ('HASH' eq $type ? 'a hash' : 'an array')
             . " into " . ('HASH' eq $type ? 'an array' : 'a hash')
         );
@@ -297,12 +293,14 @@ sub import {
 
 #XXX Need to keep track of who has a fh to this file in order to
 #XXX close them all prior to optimize on Win32/cygwin
+# Rebuild entire database into new file, then move
+# it back on top of original.
 sub optimize {
-    ##
-    # Rebuild entire database into new file, then move
-    # it back on top of original.
-    ##
     my $self = shift->_get_self;
+
+    # Optimizing is only something we need to do when we're working with our
+    # own file format. Otherwise, let the other guy do the optimizations.
+    return unless $self->_engine->isa( 'DBM::Deep::Engine::File' );
 
 #XXX Need to create a new test for this
 #    if ($self->_engine->storage->{links} > 1) {
@@ -313,7 +311,7 @@ sub optimize {
 
     #XXX Should we use tempfile() here instead of a hard-coded name?
     my $temp_filename = $self->_engine->storage->{file} . '.tmp';
-    my $db_temp = DBM::Deep->new(
+    my $db_temp = __PACKAGE__->new(
         file => $temp_filename,
         type => $self->_type,
 
@@ -357,7 +355,7 @@ sub optimize {
 
     $self->_engine->storage->open;
     $self->lock_exclusive;
-    $self->_engine->setup_fh( $self );
+    $self->_engine->setup( $self );
     $self->unlock;
 
     return 1;
@@ -369,12 +367,17 @@ sub clone {
     ##
     my $self = shift->_get_self;
 
-    return DBM::Deep->new(
+    return __PACKAGE__->new(
         type        => $self->_type,
         base_offset => $self->_base_offset,
         staleness   => $self->_staleness,
         engine      => $self->_engine,
     );
+}
+
+sub supports {
+    my $self = shift;
+    return $self->_engine->supports( @_ );
 }
 
 #XXX Migrate this to the engine, where it really belongs and go through some
@@ -436,10 +439,7 @@ sub commit {
     return $rv;
 }
 
-##
 # Accessor methods
-##
-
 sub _engine {
     my $self = $_[0]->_get_self;
     return $self->{engine};
@@ -460,10 +460,7 @@ sub _staleness {
     return $self->{staleness};
 }
 
-##
 # Utility methods
-##
-
 sub _throw_error {
     my $n = 0;
     while( 1 ) {
@@ -474,13 +471,11 @@ sub _throw_error {
     }
 }
 
+# Store single hash key/value or array element in database.
 sub STORE {
-    ##
-    # Store single hash key/value or array element in database.
-    ##
     my $self = shift->_get_self;
     my ($key, $value) = @_;
-    warn "STORE($self, $key, @{[defined$value?$value:'undef']})\n" if DEBUG;
+    warn "STORE($self, '$key', '@{[defined$value?$value:'undef']}')\n" if DEBUG;
 
     unless ( $self->_engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
@@ -494,24 +489,22 @@ sub STORE {
         $value = $self->_engine->storage->{filter_store_value}->( $value );
     }
 
-    $self->_engine->write_value( $self, $key, $value);
+    $self->_engine->write_value( $self, $key, $value );
 
     $self->unlock;
 
     return 1;
 }
 
+# Fetch single value or element given plain key or array index
 sub FETCH {
-    ##
-    # Fetch single value or element given plain key or array index
-    ##
     my $self = shift->_get_self;
     my ($key) = @_;
-    warn "FETCH($self,$key)\n" if DEBUG;
+    warn "FETCH($self, '$key')\n" if DEBUG;
 
     $self->lock_shared;
 
-    my $result = $self->_engine->read_value( $self, $key);
+    my $result = $self->_engine->read_value( $self, $key );
 
     $self->unlock;
 
@@ -522,13 +515,11 @@ sub FETCH {
         : $result;
 }
 
+# Delete single key/value pair or element given plain key or array index
 sub DELETE {
-    ##
-    # Delete single key/value pair or element given plain key or array index
-    ##
     my $self = shift->_get_self;
     my ($key) = @_;
-    warn "DELETE($self,$key)\n" if DEBUG;
+    warn "DELETE($self, '$key')\n" if DEBUG;
 
     unless ( $self->_engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
@@ -550,13 +541,11 @@ sub DELETE {
     return $value;
 }
 
+# Check if a single key or element exists given plain key or array index
 sub EXISTS {
-    ##
-    # Check if a single key or element exists given plain key or array index
-    ##
     my $self = shift->_get_self;
     my ($key) = @_;
-    warn "EXISTS($self,$key)\n" if DEBUG;
+    warn "EXISTS($self, '$key')\n" if DEBUG;
 
     $self->lock_shared;
 
@@ -567,10 +556,8 @@ sub EXISTS {
     return $result;
 }
 
+# Clear all keys from hash, or all elements from array.
 sub CLEAR {
-    ##
-    # Clear all keys from hash, or all elements from array.
-    ##
     my $self = shift->_get_self;
     warn "CLEAR($self)\n" if DEBUG;
 
@@ -605,16 +592,14 @@ sub CLEAR {
     return 1;
 }
 
-##
 # Public method aliases
-##
-sub put { (shift)->STORE( @_ ) }
-sub store { (shift)->STORE( @_ ) }
-sub get { (shift)->FETCH( @_ ) }
-sub fetch { (shift)->FETCH( @_ ) }
+sub put    { (shift)->STORE( @_ )  }
+sub get    { (shift)->FETCH( @_ )  }
+sub store  { (shift)->STORE( @_ )  }
+sub fetch  { (shift)->FETCH( @_ )  }
 sub delete { (shift)->DELETE( @_ ) }
 sub exists { (shift)->EXISTS( @_ ) }
-sub clear { (shift)->CLEAR( @_ ) }
+sub clear  { (shift)->CLEAR( @_ )  }
 
 sub _dump_file {shift->_get_self->_engine->_dump_file;}
 
