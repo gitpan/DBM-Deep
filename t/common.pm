@@ -35,19 +35,42 @@ sub new_dbm {
 
     unless ( $ENV{NO_TEST_FILE} ) {
         push @reset_funcs, undef;
-        push @extra_args, (
-            [ file => $filename ],
-        );
+        push @extra_args, [
+            file => $filename,
+        ];
     }
 
-#    eval { require DBD::SQLite; };
-#    unless ( $@ ) {
-#        push @extra_args, [
-#        ];
-#    }
+    if ( $ENV{TEST_SQLITE} ) {
+        (undef, my $filename) = new_fh();
+#        $filename = 'test.db';
+        push @reset_funcs, sub {
+            require 'DBI.pm';
+            my $dbh = DBI->connect(
+                "dbi:SQLite:dbname=$filename", '', '',
+            );
+            my $sql = do {
+                my $filename = 'etc/sqlite_tables.sql';
+                open my $fh, '<', $filename
+                    or die "Cannot open '$filename' for reading: $!\n";
+                local $/;
+                <$fh>
+            };
+            foreach my $line ( split ';', $sql ) {
+                $dbh->do( "$line" ) if $line =~ /\S/;
+            }
+        };
+        push @extra_args, [
+            dbi => {
+                dsn      => "dbi:SQLite:dbname=$filename",
+                user     => '',
+                password => '',
+            },
+        ];
+    }
 
     if ( $ENV{TEST_MYSQL_DSN} ) {
         push @reset_funcs, sub {
+            require 'DBI.pm';
             my $dbh = DBI->connect(
                 $ENV{TEST_MYSQL_DSN},
                 $ENV{TEST_MYSQL_USER},
@@ -80,9 +103,7 @@ sub new_dbm {
             $reset->();
         }
         return sub {
-            DBM::Deep->new(
-                @these_args, @args, @_,
-            );
+            DBM::Deep->new( @these_args, @args, @_ )
         };
     };
 }

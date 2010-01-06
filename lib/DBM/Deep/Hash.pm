@@ -5,6 +5,8 @@ use 5.006_000;
 use strict;
 use warnings FATAL => 'all';
 
+our $VERSION = $DBM::Deep::VERSION;
+
 use base 'DBM::Deep';
 
 sub _get_self {
@@ -99,6 +101,16 @@ sub NEXTKEY {
 
 sub first_key { (shift)->FIRSTKEY(@_) }
 sub next_key  { (shift)->NEXTKEY(@_)  }
+
+sub _clear {
+    my $self = shift;
+
+    while ( defined( my $key = $self->first_key ) ) {
+        $self->_engine->delete_key( $self, $key, $key );
+    }
+
+    return;
+}
 
 sub _copy_node {
     my $self = shift;

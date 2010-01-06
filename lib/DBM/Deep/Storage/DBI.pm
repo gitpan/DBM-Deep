@@ -25,7 +25,19 @@ sub new {
         $self->{$param} = $args->{$param};
     }
 
-    $self->open unless $self->{dbh};
+    if ( $self->{dbh} ) {
+        $self->{driver} = lc $self->{dbh}->{Driver}->{Name};
+    }
+    else {
+        $self->open;
+    }
+
+    # Foreign keys are turned off by default in SQLite3 (for now)
+    #q.v.  http://search.cpan.org/~adamk/DBD-SQLite-1.27/lib/DBD/SQLite.pm#Foreign_Keys
+    # for more info.
+    if ( $self->driver eq 'sqlite' ) {
+        $self->{dbh}->do( 'PRAGMA foreign_keys = ON' );
+    }
 
     return $self;
 }
@@ -33,17 +45,19 @@ sub new {
 sub open {
     my $self = shift;
 
-    # TODO: Is this really what should happen?
     return if $self->{dbh};
 
     $self->{dbh} = DBI->connect(
         $self->{dbi}{dsn}, $self->{dbi}{username}, $self->{dbi}{password}, {
-            AutoCommit => 0,
+            AutoCommit => 1,
             PrintError => 0,
             RaiseError => 1,
             %{ $self->{dbi}{connect_args} || {} },
         },
     ) or die $DBI::error;
+
+    # Should we use the same method as done in new() if passed a $dbh?
+    (undef, $self->{driver}) = map lc, DBI->parse_dsn( $self->{dbi}{dsn} );
 
     return 1;
 }
@@ -75,6 +89,22 @@ sub lock_shared {
 
 sub unlock {
     my $self = shift;
+#    $self->{dbh}->commit;
+}
+
+sub begin_work {
+    my $self = shift;
+    $self->{dbh}->begin_work;
+}
+
+sub commit {
+    my $self = shift;
+    $self->{dbh}->commit;
+}
+
+sub rollback {
+    my $self = shift;
+    $self->{dbh}->rollback;
 }
 
 sub read_from {
@@ -107,7 +137,7 @@ sub write_to {
       . ")";
     $self->{dbh}->do( $sql, undef, $id, @args{@keys} );
 
-    return $self->{dbh}{mysql_insertid};
+    return $self->{dbh}->last_insert_id("", "", "", "");
 }
 
 sub delete_from {
@@ -122,6 +152,21 @@ sub delete_from {
     $self->{dbh}->do(
         "DELETE FROM $table WHERE $where", undef, @{$cond}{@keys},
     );
+}
+
+sub driver { $_[0]{driver} }
+
+sub rand_function {
+    my $self = shift;
+    my $driver = $self->driver;
+    if ( $driver eq 'sqlite' ) {
+        return 'random()';
+    }
+    elsif ( $driver eq 'mysql' ) {
+        return 'RAND()';
+    }
+
+    die "rand_function undefined for $driver\n";
 }
 
 1;

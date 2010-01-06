@@ -5,18 +5,17 @@ use 5.006_000;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = q(1.0019_001);
+our $VERSION = q(1.0019_002);
 
 use Scalar::Util ();
-
-use DBM::Deep::Engine::DBI ();
-use DBM::Deep::Engine::File ();
 
 use overload
     '""' => sub { overload::StrVal( $_[0] ) },
     fallback => 1;
 
 use constant DEBUG => 0;
+
+use DBM::Deep::Engine;
 
 sub TYPE_HASH   () { DBM::Deep::Engine->SIG_HASH  }
 sub TYPE_ARRAY  () { DBM::Deep::Engine->SIG_ARRAY }
@@ -89,6 +88,7 @@ sub _init {
             ? 'DBM::Deep::Engine::DBI'
             : 'DBM::Deep::Engine::File';
 
+        eval "use $class"; die $@ if $@;
         $args->{engine} = $class->new({
             %{$args},
             obj => $self,
@@ -489,7 +489,12 @@ sub STORE {
         $value = $self->_engine->storage->{filter_store_value}->( $value );
     }
 
-    $self->_engine->write_value( $self, $key, $value );
+    eval {
+        $self->_engine->write_value( $self, $key, $value );
+    }; if ( my $e = $@ ) {
+        $self->unlock;
+        die $e;
+    }
 
     $self->unlock;
 
@@ -567,25 +572,8 @@ sub CLEAR {
 
     $self->lock_exclusive;
 
-    #XXX Rewrite this dreck to do it in the engine as a tight loop vs.
-    # iterating over keys - such a WASTE - is this required for transactional
-    # clearning?! Surely that can be detected in the engine ...
-    if ( $self->_type eq TYPE_HASH ) {
-        my $key = $self->first_key;
-        while ( $key ) {
-            # Retrieve the key before deleting because we depend on next_key
-            my $next_key = $self->next_key( $key );
-            $self->_engine->delete_key( $self, $key, $key );
-            $key = $next_key;
-        }
-    }
-    else {
-        my $size = $self->FETCHSIZE;
-        for my $key ( 0 .. $size - 1 ) {
-            $self->_engine->delete_key( $self, $key, $key );
-        }
-        $self->STORESIZE( 0 );
-    }
+    # Dispatch to the specific clearing functionality.
+    $self->_clear;
 
     $self->unlock;
 

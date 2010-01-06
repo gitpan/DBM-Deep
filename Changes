@@ -1,5 +1,24 @@
 Revision history for DBM::Deep.
 
+1.0019_002 Jan 05 22:30:00 2010 EST
+    (This is the second developer release for 1.0020.)
+    (This version is compatible with 1.0014)
+	- Fixed bug where attempting to store a value tied to something other than
+      DBM::Deep would leave the file flocked.
+	- Added support for DBD::SQLite
+        - Build.PL has been extended to support sqlite vs. mysql
+        - Storage::DBI now detects between the two DBDs
+    - (RT #51888) Applied POD patch (Thanks, FWIE!)
+    - (RT #44981) Added VERSION to ::Array, ::Engine, and ::Hash
+    - Removed extraneous slashes from POD links (Thanks ilmari!)
+    - (RT #50541) Fixed bug in clear() for hashes in the File backend.
+        - This has caused a regression in speed for clear() when clearing
+          large hashes using running with the File backend. ->clear() (on my
+          machine) now takes ( N / 40 ) ** (1.66) seconds. So, clearing 4000
+          keys (as is the test in t/03_bighash.t) would take ~2070 seconds.
+    - (RT #40782) Fixed bug when handling a key of '0' (Thanks Sterling!)
+    - (RT #48031) Fixed bug with localized $, (Thanks, SPROUT!)
+
 1.0019_001 Dec 31 22:00:00 2009 EST
     (This is the first developer release for 1.0020.)
     (This version is compatible with 1.0014)

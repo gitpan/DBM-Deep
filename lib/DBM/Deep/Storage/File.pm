@@ -17,7 +17,7 @@ DBM::Deep::Storage::File
 
 =head1 PURPOSE
 
-This is an internal-use-only object for L<DBM::Deep/>. It mediates the low-level
+This is an internal-use-only object for L<DBM::Deep>. It mediates the low-level
 interaction with the storage mechanism.
 
 Currently, the only storage mechanism supported is the file system.
@@ -180,7 +180,7 @@ sub print_at {
     my $self = shift;
     my $loc  = shift;
 
-    local ($/,$\);
+    local ($,,$\);
 
     my $fh = $self->{fh};
     if ( defined $loc ) {
@@ -213,8 +213,6 @@ The data read will be returned.
 sub read_at {
     my $self = shift;
     my ($loc, $size) = @_;
-
-    local ($/,$\);
 
     my $fh = $self->{fh};
     if ( defined $loc ) {

@@ -1,6 +1,6 @@
 ---
 name: DBM-Deep
-version: 1.0019_001
+version: 1.0019_002
 author: []
 abstract: A pure perl multi-level hash/array DBM that supports transactions
 license: perl
@@ -25,17 +25,20 @@ configure_requires:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 1.0019_001
+    version: 1.0019_002
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
+    version: 0
   DBM::Deep::Engine:
     file: lib/DBM/Deep/Engine.pm
+    version: 0
   DBM::Deep::Engine::DBI:
     file: lib/DBM/Deep/Engine/DBI.pm
   DBM::Deep::Engine::File:
     file: lib/DBM/Deep/Engine/File.pm
   DBM::Deep::Hash:
     file: lib/DBM/Deep/Hash.pm
+    version: 0
   DBM::Deep::Iterator:
     file: lib/DBM/Deep/Iterator.pm
   DBM::Deep::Iterator::DBI:
