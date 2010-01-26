@@ -1,11 +1,11 @@
-package DBM::Deep::Sector::File::Null;
+package DBM::Deep::Engine::Sector::Null;
 
 use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
 
-use base qw( DBM::Deep::Sector::File::Data );
+use base qw( DBM::Deep::Engine::Sector::Data );
 
 my $STALE_SIZE = 2;
 

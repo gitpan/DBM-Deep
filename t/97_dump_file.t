@@ -1,14 +1,14 @@
 use strict;
-use warnings FATAL => 'all';
-
-use Test::More;
+use Test::More tests => 3;
 use Test::Deep;
 use t::common qw( new_fh );
 
 use_ok( 'DBM::Deep' );
 
 my ($fh, $filename) = new_fh();
-my $db = DBM::Deep->new( $filename );
+my $db = DBM::Deep->new(
+	file => $filename,
+);
 
 is( $db->_dump_file, <<"__END_DUMP__", "Dump of initial file correct" );
 NumTxns: 1
@@ -20,7 +20,7 @@ __END_DUMP__
 
 $db->{foo} = 'bar';
 
-is( $db->_dump_file, <<"__END_DUMP__", "Dump of file after single assignment" );
+is( $db->_dump_file, <<"__END_DUMP__", "Dump of initial file correct" );
 NumTxns: 1
 Chains(B):
 Chains(D):
@@ -32,4 +32,3 @@ Chains(I):
 00000545: D  0064 foo
 __END_DUMP__
 
-done_testing;

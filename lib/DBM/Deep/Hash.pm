@@ -4,8 +4,7 @@ use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
-
-our $VERSION = $DBM::Deep::VERSION;
+no warnings 'recursion';
 
 use base 'DBM::Deep';
 
@@ -16,6 +15,9 @@ sub _get_self {
 sub _repr { return {} }
 
 sub TIEHASH {
+    ##
+    # Tied hash constructor method, called by Perl's tie() function.
+    ##
     my $class = shift;
     my $args = $class->_get_args( @_ );
     
@@ -65,8 +67,10 @@ sub DELETE {
     return $self->SUPER::DELETE( $key, $_[0] );
 }
 
-# Locate and return first key (in no particular order)
 sub FIRSTKEY {
+    ##
+    # Locate and return first key (in no particular order)
+    ##
     my $self = shift->_get_self;
 
     $self->lock_shared;
@@ -80,8 +84,10 @@ sub FIRSTKEY {
         : $result;
 }
 
-# Return next key (in no particular order), given previous one
 sub NEXTKEY {
+    ##
+    # Return next key (in no particular order), given previous one
+    ##
     my $self = shift->_get_self;
 
     my $prev_key = ($self->_engine->storage->{filter_store_key})
@@ -99,25 +105,18 @@ sub NEXTKEY {
         : $result;
 }
 
+##
+# Public method aliases
+##
 sub first_key { (shift)->FIRSTKEY(@_) }
-sub next_key  { (shift)->NEXTKEY(@_)  }
-
-sub _clear {
-    my $self = shift;
-
-    while ( defined( my $key = $self->first_key ) ) {
-        $self->_engine->delete_key( $self, $key, $key );
-    }
-
-    return;
-}
+sub next_key { (shift)->NEXTKEY(@_) }
 
 sub _copy_node {
     my $self = shift;
     my ($db_temp) = @_;
 
     my $key = $self->first_key();
-    while ($key) {
+    while (defined $key) {
         my $value = $self->get($key);
         $self->_copy_value( \$db_temp->{$key}, $value );
         $key = $self->next_key($key);

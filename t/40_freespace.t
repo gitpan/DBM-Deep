@@ -1,7 +1,8 @@
+##
+# DBM::Deep Test
+##
 use strict;
-use warnings FATAL => 'all';
-
-use Test::More;
+use Test::More tests => 13;
 use Test::Exception;
 use t::common qw( new_fh );
 
@@ -11,6 +12,7 @@ use_ok( 'DBM::Deep' );
     my ($fh, $filename) = new_fh();
     my $db = DBM::Deep->new({
         file => $filename,
+        fh => $fh,
         autoflush => 1,
     });
 
@@ -62,6 +64,7 @@ use_ok( 'DBM::Deep' );
     my ($fh, $filename) = new_fh();
     my $db = DBM::Deep->new({
         file => $filename,
+        fh => $fh,
         autoflush => 1,
     });
 
@@ -81,5 +84,3 @@ use_ok( 'DBM::Deep' );
 
     cmp_ok( $expected, '==', -s $filename, "No reindexing after deletion" );
 }
-
-done_testing;

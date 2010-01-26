@@ -1,4 +1,4 @@
-package DBM::Deep::Storage::File;
+package DBM::Deep::File;
 
 use 5.006_000;
 
@@ -9,23 +9,21 @@ use Fcntl qw( :DEFAULT :flock :seek );
 
 use constant DEBUG => 0;
 
-use base 'DBM::Deep::Storage';
-
 =head1 NAME
 
-DBM::Deep::Storage::File
+DBM::Deep::File
 
 =head1 PURPOSE
 
-This is an internal-use-only object for L<DBM::Deep>. It mediates the low-level
+This is an internal-use-only object for L<DBM::Deep/>. It mediates the low-level
 interaction with the storage mechanism.
 
 Currently, the only storage mechanism supported is the file system.
 
 =head1 OVERVIEW
 
-This class provides an abstraction to the storage mechanism so that the Engine
-(the only class that uses this class) doesn't have to worry about that.
+This class provides an abstraction to the storage mechanism so that the Engine (the
+only class that uses this class) doesn't have to worry about that.
 
 =head1 METHODS
 
@@ -76,7 +74,6 @@ There is no return value.
 
 =cut
 
-# TODO: What happens if we ->open when we already have a $fh?
 sub open {
     my $self = shift;
 
@@ -145,8 +142,8 @@ sub size {
 
 This will set the inode value of the underlying file object.
 
-This is only needed to handle some obscure Win32 bugs. It reqlly shouldn't be
-needed outside this object.
+This is only needed to handle some obscure Win32 bugs. It reqlly shouldn't be needed outside
+this object.
 
 There is no return value.
 
@@ -168,9 +165,9 @@ sub set_inode {
 
 This takes an optional offset and some data to print.
 
-C< $offset >, if defined, will be used to seek into the file. If file_offset is
-set, it will be used as the zero location. If it is undefined, no seeking will
-occur. Then, C< @data > will be printed to the current location.
+C< $offset >, if defined, will be used to seek into the file. If file_offset is set, it will be used
+as the zero location. If it is undefined, no seeking will occur. Then, C< @data > will be printed to
+the current location.
 
 There is no return value.
 
@@ -202,9 +199,9 @@ sub print_at {
 
 This takes an optional offset and a length.
 
-C< $offset >, if defined, will be used to seek into the file. If file_offset is
-set, it will be used as the zero location. If it is undefined, no seeking will
-occur. Then, C< $length > bytes will be read from the current location.
+C< $offset >, if defined, will be used to seek into the file. If file_offset is set, it will be used
+as the zero location. If it is undefined, no seeking will occur. Then, C< $length > bytes will be
+read from the current location.
 
 The data read will be returned.
 
@@ -232,7 +229,7 @@ sub read_at {
 
 =head2 DESTROY
 
-When the ::Storage::File object goes out of scope, it will be closed.
+When the ::File object goes out of scope, it will be closed.
 
 =cut
 
@@ -264,6 +261,44 @@ sub request_space {
     return $loc;
 }
 
+=head2 flush()
+
+This flushes the filehandle. This takes no parameters and returns nothing.
+
+=cut
+
+sub flush {
+    my $self = shift;
+
+    # Flush the filehandle
+    my $old_fh = select $self->{fh};
+    my $old_af = $|; $| = 1; $| = $old_af;
+    select $old_fh;
+
+    return 1;
+}
+
+=head2 is_writable()
+
+This takes no parameters. It returns a boolean saying if this filehandle is
+writable.
+
+Taken from L<http://www.perlmonks.org/?node_id=691054/>.
+
+=cut
+
+sub is_writable {
+    my $self = shift;
+
+    my $fh = $self->{fh};
+    return unless defined $fh;
+    return unless defined fileno $fh;
+    local $\ = '';  # just in case
+    no warnings;    # temporarily disable warnings
+    local $^W;      # temporarily disable warnings
+    return print $fh '';
+}
+
 =head2 copy_stats( $target_filename )
 
 This will take the stats for the current filehandle and apply them to
@@ -291,28 +326,39 @@ sub copy_stats {
     chmod( $perms, $temp_filename );
 }
 
-sub flush {
-    my $self = shift;
+=head1 LOCKING
 
-    # Flush the filehandle
-    my $old_fh = select $self->{fh};
-    my $old_af = $|; $| = 1; $| = $old_af;
-    select $old_fh;
+This is where the actual locking of the storage medium is performed.
+Nested locking is supported.
 
-    return 1;
-}
+B<NOTE>: It is unclear what will happen if a read lock is taken, then
+a write lock is taken as a nested lock, then the write lock is released.
 
-sub is_writable {
-    my $self = shift;
+Currently, the only locking method supported is flock(1). This is a
+whole-file lock. In the future, more granular locking may be supported.
+The API for that is unclear right now.
 
-    my $fh = $self->{fh};
-    return unless defined $fh;
-    return unless defined fileno $fh;
-    local $\ = '';  # just in case
-    no warnings;    # temporarily disable warnings
-    local $^W;      # temporarily disable warnings
-    return print $fh '';
-}
+The following methods manage the locking status. In all cases, they take
+a L<DBM::Deep/> object and returns nothing.
+
+=over 4
+
+=item * lock_exclusive( $obj )
+
+Take a lock usable for writing.
+
+=item * lock_shared( $obj )
+
+Take a lock usable for reading.
+
+=item * unlock( $obj )
+
+Releases the last lock taken. If this is the outermost lock, then the
+object is actually unlocked.
+
+=back
+
+=cut
 
 sub lock_exclusive {
     my $self = shift;
@@ -358,7 +404,7 @@ sub _lock {
                 $self->open;
 
                 #XXX This needs work
-                $obj->{engine}->setup( $obj );
+                $obj->{engine}->setup_fh( $obj );
 
                 flock($self->{fh}, $type); # re-lock
 

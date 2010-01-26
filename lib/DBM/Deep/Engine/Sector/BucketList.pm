@@ -1,11 +1,11 @@
-package DBM::Deep::Sector::File::BucketList;
+package DBM::Deep::Engine::Sector::BucketList;
 
 use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
 
-use base qw( DBM::Deep::Sector::File );
+use base qw( DBM::Deep::Engine::Sector );
 
 my $STALE_SIZE = 2;
 
@@ -68,7 +68,7 @@ sub free {
 
         # Delete the keysector
         my $l = unpack( $StP{$e->byte_size}, substr( $rest, $e->hash_size, $e->byte_size ) );
-        my $s = $e->load_sector( $l ); $s->free if $s;
+        my $s = $e->_load_sector( $l ); $s->free if $s;
 
         # Delete the HEAD sector
         $l = unpack( $StP{$e->byte_size},
@@ -77,7 +77,7 @@ sub free {
                 $e->byte_size,
             ),
         );
-        $s = $e->load_sector( $l ); $s->free if $s;
+        $s = $e->_load_sector( $l ); $s->free if $s;
 
         foreach my $txn ( 0 .. $e->num_txns - 2 ) {
             my $l = unpack( $StP{$e->byte_size},
@@ -86,7 +86,7 @@ sub free {
                     $e->byte_size,
                 ),
             );
-            my $s = $e->load_sector( $l ); $s->free if $s;
+            my $s = $e->_load_sector( $l ); $s->free if $s;
         }
     }
 
@@ -198,7 +198,7 @@ sub write_md5 {
     $engine->add_entry( $args->{trans_id}, $spot );
 
     unless ($self->{found}) {
-        my $key_sector = DBM::Deep::Sector::File::Scalar->new({
+        my $key_sector = DBM::Deep::Engine::Sector::Scalar->new({
             engine => $engine,
             data   => $args->{key},
         });
@@ -283,7 +283,7 @@ sub delete_md5 {
 
     $key_sector->free;
 
-    my $data_sector = $self->engine->load_sector( $location );
+    my $data_sector = $self->engine->_load_sector( $location );
     my $data = $data_sector->data({ export => 1 });
     $data_sector->free;
 
@@ -350,7 +350,7 @@ sub get_data_for {
     my $location = $self->get_data_location_for({
         allow_head => $args->{allow_head},
     });
-    return $self->engine->load_sector( $location );
+    return $self->engine->_load_sector( $location );
 }
 
 sub get_key_for {
@@ -369,7 +369,7 @@ sub get_key_for {
     $location = unpack( $StP{$self->engine->byte_size}, $location );
     DBM::Deep->_throw_error( "get_key_for: No location?" ) unless $location;
 
-    return $self->engine->load_sector( $location );
+    return $self->engine->_load_sector( $location );
 }
 
 1;

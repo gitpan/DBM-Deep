@@ -1,11 +1,11 @@
-package DBM::Deep::Sector::File::Reference;
+package DBM::Deep::Engine::Sector::Reference;
 
 use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
 
-use base qw( DBM::Deep::Sector::File::Data );
+use base qw( DBM::Deep::Engine::Sector::Data );
 
 my $STALE_SIZE = 2;
 
@@ -28,7 +28,7 @@ sub _init {
 
         my $class_offset = 0;
         if ( defined $classname ) {
-            my $class_sector = DBM::Deep::Sector::File::Scalar->new({
+            my $class_sector = DBM::Deep::Engine::Sector::Scalar->new({
                 engine => $e,
                 data   => $classname,
             });
@@ -93,7 +93,7 @@ sub get_data_for {
     my $location = $self->get_data_location_for( $args )
         or return;
 
-    return $self->engine->load_sector( $location );
+    return $self->engine->_load_sector( $location );
 }
 
 sub write_data {
@@ -175,12 +175,12 @@ sub delete_key {
     my $location = $blist->get_data_location_for({
         allow_head => 0,
     });
-    my $old_value = $location && $self->engine->load_sector( $location );
+    my $old_value = $location && $self->engine->_load_sector( $location );
 
     my @trans_ids = $self->engine->get_running_txn_ids;
 
-    # If we're the HEAD and there are running txns, then we need to clone this
-    # value to the other transactions to preserve Isolation.
+    # If we're the HEAD and there are running txns, then we need to clone this value to the other
+    # transactions to preserve Isolation.
     if ( $self->engine->trans_id == 0 ) {
         if ( @trans_ids ) {
             foreach my $other_trans_id ( @trans_ids ) {
@@ -200,7 +200,6 @@ sub delete_key {
         $blist->mark_deleted( $args );
 
         if ( $old_value ) {
-            #XXX Is this export => 1 actually doing anything?
             $data = $old_value->data({ export => 1 });
             $old_value->free;
         }
@@ -235,7 +234,7 @@ sub get_bucket_list {
     unless ( $blist_loc ) {
         return unless $args->{create};
 
-        my $blist = DBM::Deep::Sector::File::BucketList->new({
+        my $blist = DBM::Deep::Engine::Sector::BucketList->new({
             engine  => $engine,
             key_md5 => $args->{key_md5},
         });
@@ -247,15 +246,15 @@ sub get_bucket_list {
         return $blist;
     }
 
-    my $sector = $engine->load_sector( $blist_loc )
+    my $sector = $engine->_load_sector( $blist_loc )
         or DBM::Deep->_throw_error( "Cannot read sector at $blist_loc in get_bucket_list()" );
     my $i = 0;
     my $last_sector = undef;
-    while ( $sector->isa( 'DBM::Deep::Sector::File::Index' ) ) {
+    while ( $sector->isa( 'DBM::Deep::Engine::Sector::Index' ) ) {
         $blist_loc = $sector->get_entry( ord( substr( $args->{key_md5}, $i++, 1 ) ) );
         $last_sector = $sector;
         if ( $blist_loc ) {
-            $sector = $engine->load_sector( $blist_loc )
+            $sector = $engine->_load_sector( $blist_loc )
                 or DBM::Deep->_throw_error( "Cannot read sector at $blist_loc in get_bucket_list()" );
         }
         else {
@@ -271,7 +270,7 @@ sub get_bucket_list {
         DBM::Deep->_throw_error( "No last_sector when attempting to build a new entry" )
             unless $last_sector;
 
-        my $blist = DBM::Deep::Sector::File::BucketList->new({
+        my $blist = DBM::Deep::Engine::Sector::BucketList->new({
             engine  => $engine,
             key_md5 => $args->{key_md5},
         });
@@ -284,14 +283,13 @@ sub get_bucket_list {
     $sector->find_md5( $args->{key_md5} );
 
     # See whether or not we need to reindex the bucketlist
-    # Yes, the double-braces are there for a reason. if() doesn't create a
-    # redo-able block, so we have to create a bare block within the if() for
-    # redo-purposes.
-    # Patch and idea submitted by sprout@cpan.org. -RobK, 2008-01-09
+    # Yes, the double-braces are there for a reason. if() doesn't create a redo-able block,
+    # so we have to create a bare block within the if() for redo-purposes. Patch and idea
+    # submitted by sprout@cpan.org. -RobK, 2008-01-09
     if ( !$sector->has_md5 && $args->{create} && $sector->{idx} == -1 ) {{
         my $redo;
 
-        my $new_index = DBM::Deep::Sector::File::Index->new({
+        my $new_index = DBM::Deep::Engine::Sector::Index->new({
             engine => $engine,
         });
 
@@ -303,7 +301,7 @@ sub get_bucket_list {
 
             # XXX This is inefficient
             my $blist = $blist_cache{$idx}
-                ||= DBM::Deep::Sector::File::BucketList->new({
+                ||= DBM::Deep::Engine::Sector::BucketList->new({
                     engine => $engine,
                 });
 
@@ -324,7 +322,7 @@ sub get_bucket_list {
                 ++$i, ++$redo;
             } else {
                 my $blist = $blist_cache{$idx}
-                    ||= DBM::Deep::Sector::File::BucketList->new({
+                    ||= DBM::Deep::Engine::Sector::BucketList->new({
                         engine => $engine,
                     });
     
@@ -335,14 +333,14 @@ sub get_bucket_list {
                 $blist->write_md5({
                     key     => $args->{key},
                     key_md5 => $args->{key_md5},
-                    value   => DBM::Deep::Sector::File::Null->new({
+                    value   => DBM::Deep::Engine::Sector::Null->new({
                         engine => $engine,
                         data   => undef,
                     }),
                 });
             }
 #            my $blist = $blist_cache{$idx}
-#                ||= DBM::Deep::Sector::File::BucketList->new({
+#                ||= DBM::Deep::Engine::Sector::BucketList->new({
 #                    engine => $engine,
 #                });
 #
@@ -353,7 +351,7 @@ sub get_bucket_list {
 #            $blist->write_md5({
 #                key     => $args->{key},
 #                key_md5 => $args->{key_md5},
-#                value   => DBM::Deep::Sector::File::Null->new({
+#                value   => DBM::Deep::Engine::Sector::Null->new({
 #                    engine => $engine,
 #                    data   => undef,
 #                }),
@@ -406,10 +404,9 @@ sub get_classname {
 
     return unless $class_offset;
 
-    return $self->engine->load_sector( $class_offset )->data;
+    return $self->engine->_load_sector( $class_offset )->data;
 }
 
-# Look to hoist this method into a ::Reference trait
 sub data {
     my $self = shift;
     my ($args) = @_;
@@ -452,7 +449,9 @@ sub free {
     my $self = shift;
 
     # We're not ready to be removed yet.
-    return if $self->decrement_refcount > 0;
+    if ( $self->decrement_refcount > 0 ) {
+        return;
+    }
 
     # Rebless the object into DBM::Deep::Null.
     eval { %{ $self->engine->cache->{ $self->offset } } = (); };
@@ -461,10 +460,10 @@ sub free {
     delete $self->engine->cache->{ $self->offset };
 
     my $blist_loc = $self->get_blist_loc;
-    $self->engine->load_sector( $blist_loc )->free if $blist_loc;
+    $self->engine->_load_sector( $blist_loc )->free if $blist_loc;
 
     my $class_loc = $self->get_class_offset;
-    $self->engine->load_sector( $class_loc )->free if $class_loc;
+    $self->engine->_load_sector( $class_loc )->free if $class_loc;
 
     $self->SUPER::free();
 }
