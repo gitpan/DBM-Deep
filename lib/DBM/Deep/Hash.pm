@@ -111,6 +111,18 @@ sub NEXTKEY {
 sub first_key { (shift)->FIRSTKEY(@_) }
 sub next_key { (shift)->NEXTKEY(@_) }
 
+sub _clear {
+    my $self = shift;
+
+    while ( defined(my $key = $self->first_key) ) {
+      do {
+        $self->_engine->delete_key( $self, $key, $key );
+      } while defined($key = $self->next_key($key));
+    }
+
+    return;
+}
+
 sub _copy_node {
     my $self = shift;
     my ($db_temp) = @_;

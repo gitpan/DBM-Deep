@@ -2,7 +2,7 @@
 # DBM::Deep Test
 ##
 use strict;
-use Test::More tests => 51;
+use Test::More tests => 53;
 use Test::Exception;
 use t::common qw( new_fh );
 
@@ -96,9 +96,6 @@ is( scalar keys %$db, 1, "After deleting two keys, 1 remains" );
 # delete all keys
 ##
 ok( $db->clear(), "clear() returns true" );
-
-# ~~~ Temporary band-aid until the fix for RT#50541 is merged
-delete $db->{0};
 
 is( scalar keys %$db, 0, "After clear(), everything is removed" );
 
@@ -202,3 +199,22 @@ throws_ok {
     $db->exists(undef);
 } qr/Cannot use an undefined hash key/, "EXISTS fails on an undefined key";
 
+{
+    # RT# 50541 (reported by Peter Scott)
+    # clear() leaves one key unless there's only one
+    my ($fh, $filename) = new_fh();
+    my $db = DBM::Deep->new(
+        file => $filename,
+        fh => $fh,
+    );
+
+    $db->{block} = { };
+    $db->{critical} = { };
+    $db->{minor} = { };
+
+    cmp_ok( scalar(keys( %$db )), '==', 3, "Have 3 keys" );
+
+    $db->clear;
+
+    cmp_ok( scalar(keys( %$db )), '==', 0, "clear clears everything" );
+}

@@ -6,7 +6,7 @@ use strict;
 use warnings FATAL => 'all';
 no warnings 'recursion';
 
-our $VERSION = q(1.0015);
+our $VERSION = q(1.0016);
 
 use Data::Dumper ();
 use Scalar::Util ();
@@ -575,31 +575,15 @@ sub CLEAR {
     my $self = shift->_get_self;
     warn "CLEAR($self)\n" if DEBUG;
 
-    unless ( $self->_engine->storage->is_writable ) {
+    my $engine = $self->_engine;
+    unless ( $engine->storage->is_writable ) {
         $self->_throw_error( 'Cannot write to a readonly filehandle' );
     }
 
     $self->lock_exclusive;
 
-    #XXX Rewrite this dreck to do it in the engine as a tight loop vs.
-    # iterating over keys - such a WASTE - is this required for transactional
-    # clearning?! Surely that can be detected in the engine ...
-    if ( $self->_type eq TYPE_HASH ) {
-        my $key = $self->first_key;
-        while ( $key ) {
-            # Retrieve the key before deleting because we depend on next_key
-            my $next_key = $self->next_key( $key );
-            $self->_engine->delete_key( $self, $key, $key );
-            $key = $next_key;
-        }
-    }
-    else {
-        my $size = $self->FETCHSIZE;
-        for my $key ( 0 .. $size - 1 ) {
-            $self->_engine->delete_key( $self, $key, $key );
-        }
-        $self->STORESIZE( 0 );
-    }
+    # Dispatch to the specific clearing functionality.
+    $engine->clear($self);
 
     $self->unlock;
 

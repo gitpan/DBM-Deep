@@ -1,9 +1,6 @@
 ---
-name: DBM-Deep
-version: 1.0015
-author:
-abstract: A pure perl multi-level hash/array DBM that supports transactions
-license: perl
+abstract: 'A pure perl multi-level hash/array DBM that supports transactions'
+author: []
 build_requires:
   File::Path: 0.01
   File::Temp: 0.01
@@ -13,51 +10,68 @@ build_requires:
   Test::Exception: 0.21
   Test::More: 0.88
   Test::Warn: 0.08
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DBM-Deep
+provides:
+  DBM::Deep:
+    file: lib/DBM/Deep.pm
+    version: 1.0016
+  DBM::Deep::Array:
+    file: lib/DBM/Deep/Array.pm
+    version: 1.0016
+  DBM::Deep::Engine:
+    file: lib/DBM/Deep/Engine.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector:
+    file: lib/DBM/Deep/Engine/Sector.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::BucketList:
+    file: lib/DBM/Deep/Engine/Sector/BucketList.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::Data:
+    file: lib/DBM/Deep/Engine/Sector/Data.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::Index:
+    file: lib/DBM/Deep/Engine/Sector/Index.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::Null:
+    file: lib/DBM/Deep/Engine/Sector/Null.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::Reference:
+    file: lib/DBM/Deep/Engine/Sector/Reference.pm
+    version: 1.0016
+  DBM::Deep::Engine::Sector::Scalar:
+    file: lib/DBM/Deep/Engine/Sector/Scalar.pm
+    version: 1.0016
+  DBM::Deep::File:
+    file: lib/DBM/Deep/File.pm
+    version: 1.0016
+  DBM::Deep::Hash:
+    file: lib/DBM/Deep/Hash.pm
+    version: 1.0016
+  DBM::Deep::Iterator:
+    file: lib/DBM/Deep/Iterator.pm
+    version: 1.0016
+  DBM::Deep::Iterator::BucketList:
+    file: lib/DBM/Deep/Iterator/BucketList.pm
+    version: 1.0016
+  DBM::Deep::Iterator::Index:
+    file: lib/DBM/Deep/Iterator/Index.pm
+    version: 1.0016
+  DBM::Deep::Null:
+    file: lib/DBM/Deep/Null.pm
+    version: 1.0016
 requires:
   Digest::MD5: 1.00
   Fcntl: 0.01
   Scalar::Util: 1.14
   perl: 5.006_000
-configure_requires:
-  Module::Build: 0.340201
-generated_by: Module::Build version 0.340201
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
-provides:
-  DBM::Deep:
-    file: lib/DBM/Deep.pm
-    version: 1.0015
-  DBM::Deep::Array:
-    file: lib/DBM/Deep/Array.pm
-    version: 1.0013
-  DBM::Deep::Engine:
-    file: lib/DBM/Deep/Engine.pm
-  DBM::Deep::Engine::Sector:
-    file: lib/DBM/Deep/Engine/Sector.pm
-  DBM::Deep::Engine::Sector::BucketList:
-    file: lib/DBM/Deep/Engine/Sector/BucketList.pm
-  DBM::Deep::Engine::Sector::Data:
-    file: lib/DBM/Deep/Engine/Sector/Data.pm
-  DBM::Deep::Engine::Sector::Index:
-    file: lib/DBM/Deep/Engine/Sector/Index.pm
-  DBM::Deep::Engine::Sector::Null:
-    file: lib/DBM/Deep/Engine/Sector/Null.pm
-  DBM::Deep::Engine::Sector::Reference:
-    file: lib/DBM/Deep/Engine/Sector/Reference.pm
-  DBM::Deep::Engine::Sector::Scalar:
-    file: lib/DBM/Deep/Engine/Sector/Scalar.pm
-  DBM::Deep::File:
-    file: lib/DBM/Deep/File.pm
-  DBM::Deep::Hash:
-    file: lib/DBM/Deep/Hash.pm
-  DBM::Deep::Iterator:
-    file: lib/DBM/Deep/Iterator.pm
-  DBM::Deep::Iterator::BucketList:
-    file: lib/DBM/Deep/Iterator/BucketList.pm
-  DBM::Deep::Iterator::Index:
-    file: lib/DBM/Deep/Iterator/Index.pm
-  DBM::Deep::Null:
-    file: lib/DBM/Deep/Null.pm
 resources:
   license: http://dev.perl.org/licenses/
+version: 1.0016

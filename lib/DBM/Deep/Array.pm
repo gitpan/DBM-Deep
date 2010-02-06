@@ -6,8 +6,6 @@ use strict;
 use warnings;
 no warnings 'recursion';
 
-our $VERSION = q(1.0013);
-
 # This is to allow DBM::Deep::Array to handle negative indices on
 # its own. Otherwise, Perl would intercept the call to negative
 # indices for us. This was causing bugs for negative index handling.
@@ -396,6 +394,18 @@ sub _copy_node {
     }
 
     return 1;
+}
+
+sub _clear {
+    my $self = shift;
+
+    my $size = $self->FETCHSIZE;
+    for my $key ( 0 .. $size - 1 ) {
+        $self->_engine->delete_key( $self, $key, $key );
+    }
+    $self->STORESIZE( 0 );
+
+    return;
 }
 
 ##
