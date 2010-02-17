@@ -1,8 +1,8 @@
-use 5.006_000;
-
 use strict;
 use warnings FATAL => 'all';
 
+# Need to have an explicit plan in order for the sub-testing to work right.
+#XXX Figure out how to use subtests for that.
 use Test::More tests => 14;
 use Test::Exception;
 use t::common qw( new_fh );
@@ -61,14 +61,6 @@ my $db = DBM::Deep->new({
 });
 is($db->{x}, 'b', "and get at stuff in the database");
 __END_FH__
-
-    # The exec below prevents END blocks from doing this.
-    (my $esc_dir = $t::common::dir) =~ s/(.)/sprintf "\\x{%x}", ord $1/egg;
-    print $fh <<__END_FH_AGAIN__;
-use File::Path 'rmtree';
-rmtree "$esc_dir"; 
-__END_FH_AGAIN__
-
     print $fh "__DATA__\n";
     close $fh;
 
@@ -84,8 +76,9 @@ __END_FH_AGAIN__
         my $db = DBM::Deep->new({
             file        => $filename,
             file_offset => $offset,
-#XXX For some reason, this is needed to make the test pass. Figure out why later.
-locking => 0,
+            #XXX For some reason, this is needed to make the test pass. Figure
+            #XXX out why later.
+            locking => 0,
         });
 
         $db->{x} = 'b';

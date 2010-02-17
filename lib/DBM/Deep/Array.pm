@@ -3,7 +3,7 @@ package DBM::Deep::Array;
 use 5.006_000;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 no warnings 'recursion';
 
 # This is to allow DBM::Deep::Array to handle negative indices on
@@ -170,9 +170,9 @@ sub DELETE {
     return $rv;
 }
 
-# Now that we have a real Reference sector, we should store arrayzize there. However,
-# arraysize needs to be transactionally-aware, so a simple location to store it isn't
-# going to work.
+# Now that we have a real Reference sector, we should store arrayzize there.
+# However, arraysize needs to be transactionally-aware, so a simple location to
+# store it isn't going to work.
 sub FETCHSIZE {
     my $self = shift->_get_self;
 
@@ -377,12 +377,9 @@ sub SPLICE {
 
 # We don't need to populate it, yet.
 # It will be useful, though, when we split out HASH and ARRAY
-sub EXTEND {
-    ##
-    # Perl will call EXTEND() when the array is likely to grow.
-    # We don't care, but include it because it gets called at times.
-    ##
-}
+# Perl will call EXTEND() when the array is likely to grow.
+# We don't care, but include it because it gets called at times.
+sub EXTEND {}
 
 sub _copy_node {
     my $self = shift;
@@ -408,14 +405,11 @@ sub _clear {
     return;
 }
 
-##
-# Public method aliases
-##
-sub length { (shift)->FETCHSIZE(@_) }
-sub pop { (shift)->POP(@_) }
-sub push { (shift)->PUSH(@_) }
-sub unshift { (shift)->UNSHIFT(@_) }
-sub splice { (shift)->SPLICE(@_) }
+sub length  { (shift)->FETCHSIZE(@_) }
+sub pop     { (shift)->POP(@_)       }
+sub push    { (shift)->PUSH(@_)      }
+sub unshift { (shift)->UNSHIFT(@_)   }
+sub splice  { (shift)->SPLICE(@_)    }
 
 # This must be last otherwise we have to qualify all other calls to shift
 # as calls to CORE::shift

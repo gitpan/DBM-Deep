@@ -1,12 +1,11 @@
-package DBM::Deep::Engine::Sector::Scalar;
+package DBM::Deep::Sector::File::Scalar;
 
 use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
-no warnings 'recursion';
 
-use base qw( DBM::Deep::Engine::Sector::Data );
+use base qw( DBM::Deep::Sector::File::Data );
 
 my $STALE_SIZE = 2;
 
@@ -26,7 +25,7 @@ sub free {
     $self->SUPER::free();
 
     if ( $chain_loc ) {
-        $self->engine->_load_sector( $chain_loc )->free;
+        $self->engine->load_sector( $chain_loc )->free;
     }
 
     return;
@@ -108,8 +107,6 @@ sub chain_loc {
 
 sub data {
     my $self = shift;
-#    my ($args) = @_;
-#    $args ||= {};
 
     my $data;
     while ( 1 ) {
@@ -121,7 +118,7 @@ sub data {
 
         last unless $chain_loc;
 
-        $self = $self->engine->_load_sector( $chain_loc );
+        $self = $self->engine->load_sector( $chain_loc );
     }
 
     return $data;

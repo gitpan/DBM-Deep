@@ -1,11 +1,11 @@
-package DBM::Deep::Engine::Sector::Reference;
+package DBM::Deep::Sector::File::Reference;
 
 use 5.006_000;
 
 use strict;
 use warnings FATAL => 'all';
 
-use base qw( DBM::Deep::Engine::Sector::Data );
+use base qw( DBM::Deep::Sector::File::Data );
 
 my $STALE_SIZE = 2;
 
@@ -28,7 +28,7 @@ sub _init {
 
         my $class_offset = 0;
         if ( defined $classname ) {
-            my $class_sector = DBM::Deep::Engine::Sector::Scalar->new({
+            my $class_sector = DBM::Deep::Sector::File::Scalar->new({
                 engine => $e,
                 data   => $classname,
             });
@@ -56,8 +56,6 @@ sub _init {
 
     return;
 }
-
-sub staleness { $_[0]{staleness} }
 
 sub get_data_location_for {
     my $self = shift;
@@ -93,7 +91,7 @@ sub get_data_for {
     my $location = $self->get_data_location_for( $args )
         or return;
 
-    return $self->engine->_load_sector( $location );
+    return $self->engine->load_sector( $location );
 }
 
 sub write_data {
@@ -175,12 +173,12 @@ sub delete_key {
     my $location = $blist->get_data_location_for({
         allow_head => 0,
     });
-    my $old_value = $location && $self->engine->_load_sector( $location );
+    my $old_value = $location && $self->engine->load_sector( $location );
 
     my @trans_ids = $self->engine->get_running_txn_ids;
 
-    # If we're the HEAD and there are running txns, then we need to clone this value to the other
-    # transactions to preserve Isolation.
+    # If we're the HEAD and there are running txns, then we need to clone this
+    # value to the other transactions to preserve Isolation.
     if ( $self->engine->trans_id == 0 ) {
         if ( @trans_ids ) {
             foreach my $other_trans_id ( @trans_ids ) {
@@ -200,6 +198,7 @@ sub delete_key {
         $blist->mark_deleted( $args );
 
         if ( $old_value ) {
+            #XXX Is this export => 1 actually doing anything?
             $data = $old_value->data({ export => 1 });
             $old_value->free;
         }
@@ -211,34 +210,14 @@ sub delete_key {
     return $data;
 }
 
-sub clear {
+sub write_blist_loc {
     my $self = shift;
-
-    my $blist_loc = $self->get_blist_loc or return;
+    my ($loc) = @_;
 
     my $engine = $self->engine;
-
-    if($engine->get_running_txn_ids) {
-        # ~~~ Temporary; the code below this block needs to be modified to
-        #     take transactions into account.
-        $self->data->_clear;
-        return;
-    }
-
-    my $sector = $engine->_load_sector( $blist_loc )
-        or DBM::Deep->_throw_error(
-           "Cannot read sector at $blist_loc in clear()"
-        );
-
-    # Set blist offset to 0
     $engine->storage->print_at( $self->offset + $self->base_size,
-        pack( $StP{$engine->byte_size}, 0 ),
+        pack( $StP{$engine->byte_size}, $loc ),
     );
-
-    # Free the blist
-    $sector->free;
-
-    return;
 }
 
 sub get_blist_loc {
@@ -264,27 +243,28 @@ sub get_bucket_list {
     unless ( $blist_loc ) {
         return unless $args->{create};
 
-        my $blist = DBM::Deep::Engine::Sector::BucketList->new({
+        my $blist = DBM::Deep::Sector::File::BucketList->new({
             engine  => $engine,
             key_md5 => $args->{key_md5},
         });
 
-        $engine->storage->print_at( $self->offset + $self->base_size,
-            pack( $StP{$engine->byte_size}, $blist->offset ),
-        );
+        $self->write_blist_loc( $blist->offset );
+#        $engine->storage->print_at( $self->offset + $self->base_size,
+#            pack( $StP{$engine->byte_size}, $blist->offset ),
+#        );
 
         return $blist;
     }
 
-    my $sector = $engine->_load_sector( $blist_loc )
+    my $sector = $engine->load_sector( $blist_loc )
         or DBM::Deep->_throw_error( "Cannot read sector at $blist_loc in get_bucket_list()" );
     my $i = 0;
     my $last_sector = undef;
-    while ( $sector->isa( 'DBM::Deep::Engine::Sector::Index' ) ) {
+    while ( $sector->isa( 'DBM::Deep::Sector::File::Index' ) ) {
         $blist_loc = $sector->get_entry( ord( substr( $args->{key_md5}, $i++, 1 ) ) );
         $last_sector = $sector;
         if ( $blist_loc ) {
-            $sector = $engine->_load_sector( $blist_loc )
+            $sector = $engine->load_sector( $blist_loc )
                 or DBM::Deep->_throw_error( "Cannot read sector at $blist_loc in get_bucket_list()" );
         }
         else {
@@ -300,7 +280,7 @@ sub get_bucket_list {
         DBM::Deep->_throw_error( "No last_sector when attempting to build a new entry" )
             unless $last_sector;
 
-        my $blist = DBM::Deep::Engine::Sector::BucketList->new({
+        my $blist = DBM::Deep::Sector::File::BucketList->new({
             engine  => $engine,
             key_md5 => $args->{key_md5},
         });
@@ -320,7 +300,7 @@ sub get_bucket_list {
     if ( !$sector->has_md5 && $args->{create} && $sector->{idx} == -1 ) {{
         my $redo;
 
-        my $new_index = DBM::Deep::Engine::Sector::Index->new({
+        my $new_index = DBM::Deep::Sector::File::Index->new({
             engine => $engine,
         });
 
@@ -332,7 +312,7 @@ sub get_bucket_list {
 
             # XXX This is inefficient
             my $blist = $blist_cache{$idx}
-                ||= DBM::Deep::Engine::Sector::BucketList->new({
+                ||= DBM::Deep::Sector::File::BucketList->new({
                     engine => $engine,
                 });
 
@@ -353,7 +333,7 @@ sub get_bucket_list {
                 ++$i, ++$redo;
             } else {
                 my $blist = $blist_cache{$idx}
-                    ||= DBM::Deep::Engine::Sector::BucketList->new({
+                    ||= DBM::Deep::Sector::File::BucketList->new({
                         engine => $engine,
                     });
     
@@ -364,29 +344,12 @@ sub get_bucket_list {
                 $blist->write_md5({
                     key     => $args->{key},
                     key_md5 => $args->{key_md5},
-                    value   => DBM::Deep::Engine::Sector::Null->new({
+                    value   => DBM::Deep::Sector::File::Null->new({
                         engine => $engine,
                         data   => undef,
                     }),
                 });
             }
-#            my $blist = $blist_cache{$idx}
-#                ||= DBM::Deep::Engine::Sector::BucketList->new({
-#                    engine => $engine,
-#                });
-#
-#            $new_index->set_entry( $idx => $blist->offset );
-#
-#            #XXX THIS IS HACKY!
-#            $blist->find_md5( $args->{key_md5} );
-#            $blist->write_md5({
-#                key     => $args->{key},
-#                key_md5 => $args->{key_md5},
-#                value   => DBM::Deep::Engine::Sector::Null->new({
-#                    engine => $engine,
-#                    data   => undef,
-#                }),
-#            });
         }
 
         if ( $last_sector ) {
@@ -400,7 +363,7 @@ sub get_bucket_list {
             );
         }
 
-        $sector->clear;
+        $sector->wipe;
         $sector->free;
 
         if ( $redo ) {
@@ -435,36 +398,38 @@ sub get_classname {
 
     return unless $class_offset;
 
-    return $self->engine->_load_sector( $class_offset )->data;
+    return $self->engine->load_sector( $class_offset )->data;
 }
 
+# Look to hoist this method into a ::Reference trait
 sub data {
     my $self = shift;
     my ($args) = @_;
     $args ||= {};
 
-    my $obj;
-    unless ( $obj = $self->engine->cache->{ $self->offset } ) {
-        $obj = DBM::Deep->new({
+    my $engine = $self->engine;
+#    if ( !exists $engine->cache->{ $self->offset }{ $engine->trans_id } ) {
+        my $obj = DBM::Deep->new({
             type        => $self->type,
             base_offset => $self->offset,
             staleness   => $self->staleness,
-            storage     => $self->engine->storage,
-            engine      => $self->engine,
+            storage     => $engine->storage,
+            engine      => $engine,
         });
 
-        if ( $self->engine->storage->{autobless} ) {
+#        $engine->cache->{$self->offset}{ $engine->trans_id } = $obj;
+#    }
+#    my $obj = $engine->cache->{$self->offset}{ $engine->trans_id };
+
+    # We're not exporting, so just return.
+    unless ( $args->{export} ) {
+        if ( $engine->storage->{autobless} ) {
             my $classname = $self->get_classname;
             if ( defined $classname ) {
                 bless $obj, $classname;
             }
         }
 
-        $self->engine->cache->{$self->offset} = $obj;
-    }
-
-    # We're not exporting, so just return.
-    unless ( $args->{export} ) {
         return $obj;
     }
 
@@ -480,21 +445,21 @@ sub free {
     my $self = shift;
 
     # We're not ready to be removed yet.
-    if ( $self->decrement_refcount > 0 ) {
-        return;
-    }
+    return if $self->decrement_refcount > 0;
+
+    my $e = $self->engine;
 
     # Rebless the object into DBM::Deep::Null.
-    eval { %{ $self->engine->cache->{ $self->offset } } = (); };
-    eval { @{ $self->engine->cache->{ $self->offset } } = (); };
-    bless $self->engine->cache->{ $self->offset }, 'DBM::Deep::Null';
-    delete $self->engine->cache->{ $self->offset };
+#    eval { %{ $e->cache->{ $self->offset }{ $e->trans_id } } = (); };
+#    eval { @{ $e->cache->{ $self->offset }{ $e->trans_id } } = (); };
+#    bless $e->cache->{ $self->offset }{ $e->trans_id }, 'DBM::Deep::Null';
+#    delete $e->cache->{ $self->offset }{ $e->trans_id };
 
     my $blist_loc = $self->get_blist_loc;
-    $self->engine->_load_sector( $blist_loc )->free if $blist_loc;
+    $e->load_sector( $blist_loc )->free if $blist_loc;
 
     my $class_loc = $self->get_class_offset;
-    $self->engine->_load_sector( $class_loc )->free if $class_loc;
+    $e->load_sector( $class_loc )->free if $class_loc;
 
     $self->SUPER::free();
 }
@@ -544,6 +509,37 @@ sub write_refcount {
         $self->offset + $self->base_size + 2 * $e->byte_size,
         pack( $StP{$e->byte_size}, $num ),
     );
+}
+
+sub clear {
+    my $self = shift;
+
+    my $blist_loc = $self->get_blist_loc or return;
+
+    my $engine = $self->engine;
+
+    # This won't work with autoblessed items.
+    if ($engine->get_running_txn_ids) {
+        # ~~~ Temporary; the code below this block needs to be modified to
+        #     take transactions into account.
+        $self->data->_get_self->_clear;
+        return;
+    }
+
+    my $sector = $engine->load_sector( $blist_loc )
+        or DBM::Deep->_throw_error(
+           "Cannot read sector at $blist_loc in clear()"
+        );
+
+    # Set blist offset to 0
+    $engine->storage->print_at( $self->offset + $self->base_size,
+        pack( $StP{$engine->byte_size}, 0 ),
+    );
+
+    # Free the blist
+    $sector->free;
+
+    return;
 }
 
 1;

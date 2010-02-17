@@ -1,64 +1,74 @@
 use strict;
-use Test::More tests => 11;
+use warnings FATAL => 'all';
+
+use Test::More;
 use Test::Deep;
-use t::common qw( new_fh );
+use t::common qw( new_dbm );
 
 use_ok( 'DBM::Deep' );
 
-{
-    my ($fh, $filename) = new_fh();
-    my $db = DBM::Deep->new(
-        file => $filename,
-        locking => 1,
-        autoflush => 1,
-    );
+my $dbm_factory = new_dbm(
+    locking => 1,
+    autoflush => 1,
+);
+while ( my $dbm_maker = $dbm_factory->() ) {
+    my $db = $dbm_maker->();
 
-    $db->{a} = 1;
-    $db->{foo} = { a => 'b' };
-    my $x = $db->{foo};
-    my $y = $db->{foo};
+    SKIP: {
+        skip "This engine doesn't support singletons", 8
+            unless $db->supports( 'singletons' );
 
-    is( $x, $y, "The references are the same" );
+        $db->{a} = 1;
+        $db->{foo} = { a => 'b' };
+        my $x = $db->{foo};
+        my $y = $db->{foo};
 
-    delete $db->{foo};
-    is( $x, undef, "After deleting the DB location, external references are also undef (\$x)" );
-    is( $y, undef, "After deleting the DB location, external references are also undef (\$y)" );
-    is( $x + 0, undef, "DBM::Deep::Null can be added to." );
-    is( $y + 0, undef, "DBM::Deep::Null can be added to." );
-    is( $db->{foo}, undef, "The {foo} location is also undef." );
+        is( $x, $y, "The references are the same" );
 
-    # These shenanigans work to get another hashref
-    # into the same data location as $db->{foo} was.
-    $db->{foo} = {};
-    delete $db->{foo};
-    $db->{foo} = {};
-    $db->{bar} = {};
+        delete $db->{foo};
+        is( $x, undef, "After deleting the DB location, external references are also undef (\$x)" );
+        is( $y, undef, "After deleting the DB location, external references are also undef (\$y)" );
+        is( eval { $x + 0 }, undef, "DBM::Deep::Null can be added to." );
+        is( eval { $y + 0 }, undef, "DBM::Deep::Null can be added to." );
+        is( $db->{foo}, undef, "The {foo} location is also undef." );
 
-    is( $x, undef, "After re-assigning to {foo}, external references to old values are still undef (\$x)" );
-    is( $y, undef, "After re-assigning to {foo}, external references to old values are still undef (\$y)" );
+        # These shenanigans work to get another hashref
+        # into the same data location as $db->{foo} was.
+        $db->{foo} = {};
+        delete $db->{foo};
+        $db->{foo} = {};
+        $db->{bar} = {};
+
+        is( $x, undef, "After re-assigning to {foo}, external references to old values are still undef (\$x)" );
+        is( $y, undef, "After re-assigning to {foo}, external references to old values are still undef (\$y)" );
+    }
 }
 
 SKIP: {
     skip "What do we do with external references and txns?", 2;
-    my ($fh, $filename) = new_fh();
-    my $db = DBM::Deep->new(
-        file => $filename,
-        locking => 1,
+
+    my $dbm_factory = new_dbm(
+        locking   => 1,
         autoflush => 1,
-        num_txns => 2,
+        num_txns  => 2,
     );
+    while ( my $dbm_maker = $dbm_factory->() ) {
+        my $db = $dbm_maker->();
 
-    $db->{foo} = { a => 'b' };
-    my $x = $db->{foo};
+        $db->{foo} = { a => 'b' };
+        my $x = $db->{foo};
 
-    $db->begin_work;
+        $db->begin_work;
     
-        $db->{foo} = { c => 'd' };
-        my $y = $db->{foo};
+            $db->{foo} = { c => 'd' };
+            my $y = $db->{foo};
 
-        # XXX What should happen here with $x and $y?
-        is( $x, $y );
-        is( $x->{c}, 'd' );
+            # XXX What should happen here with $x and $y?
+            is( $x, $y );
+            is( $x->{c}, 'd' );
 
-    $db->rollback;
+        $db->rollback;
+    }
 }
+
+done_testing;

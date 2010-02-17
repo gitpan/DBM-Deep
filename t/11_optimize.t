@@ -1,13 +1,10 @@
-##
-# DBM::Deep Test
-##
 use strict;
+use warnings FATAL => 'all';
+
 use Test::More;
 
 plan skip_all => "Skipping the optimize tests on Win32/cygwin for now."
     if ( $^O eq 'MSWin32' || $^O eq 'cygwin' );
-
-plan tests => 9;
 
 use t::common qw( new_fh );
 
@@ -54,7 +51,7 @@ my $result = $db->optimize();
 my $after = (stat($filename))[7];
 
 ok( $result, "optimize succeeded" );
-ok( $after < $before, "file size has shrunk" ); # make sure file shrunk
+cmp_ok( $after, '<', $before, "file size has shrunk" ); # make sure file shrunk
 
 is( $db->{key1}, 'value1', "key1's value is still there after optimize" );
 is( $db->{a}{c}, 'value2', "key2's value is still there after optimize" );
@@ -130,3 +127,5 @@ SKIP: {
     is( $db->{key1}, 'value1', "key1's value is still there after optimize" );
     is( $db->{a}{c}, 'value2', "key2's value is still there after optimize" );
 }
+
+done_testing;
