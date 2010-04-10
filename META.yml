@@ -1,6 +1,6 @@
 ---
 name: DBM-Deep
-version: 1.0019_003
+version: 1.0020
 author: []
 abstract: A pure perl multi-level hash/array DBM that supports transactions
 license: perl
@@ -25,82 +25,82 @@ configure_requires:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Engine:
     file: lib/DBM/Deep/Engine.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Engine::DBI:
     file: lib/DBM/Deep/Engine/DBI.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Engine::File:
     file: lib/DBM/Deep/Engine/File.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Hash:
     file: lib/DBM/Deep/Hash.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Iterator:
     file: lib/DBM/Deep/Iterator.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Iterator::DBI:
     file: lib/DBM/Deep/Iterator/DBI.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Iterator::File:
     file: lib/DBM/Deep/Iterator/File.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Iterator::File::BucketList:
     file: lib/DBM/Deep/Iterator/File/BucketList.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Iterator::File::Index:
     file: lib/DBM/Deep/Iterator/File/Index.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Null:
     file: lib/DBM/Deep/Null.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector:
     file: lib/DBM/Deep/Sector.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::DBI:
     file: lib/DBM/Deep/Sector/DBI.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::DBI::Reference:
     file: lib/DBM/Deep/Sector/DBI/Reference.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::DBI::Scalar:
     file: lib/DBM/Deep/Sector/DBI/Scalar.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File:
     file: lib/DBM/Deep/Sector/File.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::BucketList:
     file: lib/DBM/Deep/Sector/File/BucketList.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::Data:
     file: lib/DBM/Deep/Sector/File/Data.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::Index:
     file: lib/DBM/Deep/Sector/File/Index.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::Null:
     file: lib/DBM/Deep/Sector/File/Null.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::Reference:
     file: lib/DBM/Deep/Sector/File/Reference.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Sector::File::Scalar:
     file: lib/DBM/Deep/Sector/File/Scalar.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Storage:
     file: lib/DBM/Deep/Storage.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Storage::DBI:
     file: lib/DBM/Deep/Storage/DBI.pm
-    version: 1.0019_003
+    version: 1.0020
   DBM::Deep::Storage::File:
     file: lib/DBM/Deep/Storage/File.pm
-    version: 1.0019_003
+    version: 1.0020
 generated_by: Module::Build version 0.35
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html

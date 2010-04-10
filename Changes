@@ -1,5 +1,14 @@
 Revision history for DBM::Deep (ordered by revision number).
 
+1.0020 Feb 16 22:00:00 2010 EST
+    (This version is compatible with 1.0016)
+	- Fixed t/43_transaction_maximum.t so that it doesn't error out on systems
+      which cannot fork > 255 children at one time.
+    - Improved code coverage
+        - Added t/96_virtual_functions.t which helps describe what actually
+          needs to be overridden in a new plugin.
+    
+
 1.0019_003 Feb 16 22:00:00 2010 EST
     (This is the third developer release for 1.0020.)
     (This version is compatible with 1.0016)
@@ -66,6 +75,20 @@ Revision history for DBM::Deep (ordered by revision number).
     - Fix deep recursion errors (RT#53575)
     - Avoid leaving temp files lying around (RT#32462)
     - (RT #48031) Fixed bug with localized $, (Thanks, SPROUT!)
+
+1.0016 Feb 05 22:10:00 2010 PST
+    - (This version is compatible with 1.0015)
+    - New caveat in the docs explaining stale references (RT#42129)
+    - All included modules now have the same version in META.yml, so
+      the CPAN shell will no longer try to downgrade.
+    - Fixed bug in clear() for hashes (RT#50541)
+
+1.0015 Jan 25 22:05:00 2010 PST
+    - (This version is compatible with 1.0014)
+    - Fix deep recursion errors (RT#53575)
+    - Avoid leaving temp files lying around (RT#32462)
+    - (RT #48031) Fixed bug with localized $, (Thanks, SPROUT!)
+    - (RT #40782) Fixed bug when handling a key of '0' (Thanks Sterling!)
 
 1.0014 Jun 13 23:15:00 2008 EST
     - (This version is compatible with 1.0013)
