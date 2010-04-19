@@ -192,7 +192,7 @@ specify the C<type> parameter:
       type => DBM::Deep->TYPE_ARRAY
   );
 
-B<Note:> Specifing the C<type> parameter only takes effect when beginning
+B<Note:> Specifying the C<type> parameter only takes effect when beginning
 a new DB file. If you create a DBM::Deep object with an existing file, the
 C<type> will be loaded from the file header, and an error will be thrown if
 the wrong type is passed in.
@@ -737,7 +737,7 @@ four available filter hooks.
 
 =head2 set_filter()
 
-This method takes two paramters - the filter type and the filter subreference.
+This method takes two parameters - the filter type and the filter subreference.
 The four types are:
 
 =over
@@ -1066,7 +1066,8 @@ any modifications to either $db or $copy will be visible to both.
 =head2 Stale References
 
 If you take a reference to an array or hash from the database, it is tied
-to the database itself. This means that if the datum in question is subsequentl
+to the database itself. This means that if the datum in question is
+subsequently deleted from the database, the reference to it will point to
 an invalid location and unpredictable things will happen if you try to use
 it.
 
