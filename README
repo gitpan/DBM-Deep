@@ -171,7 +171,7 @@ SETUP
     tie() function. The object returned from tie() can be used to call
     methods, such as lock() and unlock(). (That object can be retrieved from
     the tied variable at any time using tied() - please see perltie for more
-    info.
+    info.)
 
       my %hash;
       my $db = tie %hash, "DBM::Deep", "foo.db";
@@ -350,7 +350,7 @@ OO INTERFACE
     interface to manipulate all aspects of DBM::Deep databases. Each type of
     object (hash or array) has its own methods, but both types share the
     following common methods: `put()', `get()', `exists()', `delete()' and
-    `clear()'. `fetch()' and `store(' are aliases to `put()' and `get()',
+    `clear()'. `fetch()' and `store()' are aliases to `put()' and `get()',
     respectively.
 
     * new() / clone()
@@ -972,6 +972,11 @@ CAVEATS, ISSUES & BUGS
       $db->lock_exclusive;
       my %hash = %{ $db->{some_hash} };
       $db->unlock;
+
+    As of version 1.0024, if you assign a stale reference to a location in
+    the database, DBM::Deep will warn, if you have uninitialized warnings
+    enabled, and treat the stale reference as `undef'. An attempt to use a
+    stale reference as an array or hash reference will cause an error.
 
   Large Arrays
     Beware of using `shift()', `unshift()' or `splice()' with large arrays.

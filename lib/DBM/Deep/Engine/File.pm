@@ -298,6 +298,13 @@ sub write_value {
     if ( !defined $value ) {
         $class = 'DBM::Deep::Sector::File::Null';
     }
+    elsif ( ref $value eq 'DBM::Deep::Null' ) {
+        DBM::Deep::_warnif(
+             'uninitialized', 'Assignment of stale reference'
+        );
+        $class = 'DBM::Deep::Sector::File::Null';
+        $value = undef;
+    }
     elsif ( $r eq 'ARRAY' || $r eq 'HASH' ) {
         my $tmpvar;
         if ( $r eq 'ARRAY' ) {
@@ -590,7 +597,7 @@ sub get_running_txn_ids {
 =head2 get_txn_staleness_counter( $trans_id )
 
 This will return the staleness counter for the given transaction ID. Please see
-L</TRANSACTION STALENESS> for more information.
+L<DBM::Deep::Engine/STALENESS> for more information.
 
 =cut
 
@@ -612,7 +619,7 @@ sub get_txn_staleness_counter {
 =head2 inc_txn_staleness_counter( $trans_id )
 
 This will increment the staleness counter for the given transaction ID. Please see
-L</TRANSACTION STALENESS> for more information.
+L<DBM::Deep::Engine/STALENESS> for more information.
 
 =cut
 

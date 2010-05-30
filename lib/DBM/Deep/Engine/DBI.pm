@@ -216,7 +216,9 @@ sub write_value {
         or die "Cannot load sector at '@{[$obj->_base_offset]}'\n";;
 
     my ($type, $class);
-    if ( $r eq 'ARRAY' || $r eq 'HASH' ) {
+    if (
+     $r eq 'ARRAY' || $r eq 'HASH' and ref $value ne 'DBM::Deep::Null'
+    ) {
         my $tmpvar;
         if ( $r eq 'ARRAY' ) {
             $tmpvar = tied @$value;
@@ -259,6 +261,13 @@ sub write_value {
     else {
         if ( tied($value) ) {
             DBM::Deep->_throw_error( "Cannot store something that is tied." );
+        }
+
+        if ( ref $value eq 'DBM::Deep::Null' ) {
+            DBM::Deep::_warnif(
+             'uninitialized', 'Assignment of stale reference'
+            );
+            $value = undef;
         }
 
         $class = 'DBM::Deep::Sector::DBI::Scalar';

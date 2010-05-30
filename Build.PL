@@ -6,13 +6,6 @@ use warnings FATAL => 'all';
 my $build = Module::Build->subclass(
     class => "Module::Build::Custom",
     code => '
-        sub prepare_metadata {
-            my $node = shift->SUPER::prepare_metadata(@_);
-            my $ver = $node->{version};
-            $_->{version} = $ver for values %{$node->{provides}};
-            $node;
-        }
-
         sub ACTION_test {
             my $self = shift;
             if ( $self->notes(\'TEST_MYSQL_DSN\') ) {
@@ -40,7 +33,6 @@ my $build = Module::Build->subclass(
         'File::Path'      => '0.01',
         'File::Temp'      => '0.01',
         'Pod::Usage'      => '1.3',
-        'Test::More'      => '0.88',
         'Test::Deep'      => '0.095',
         'Test::Warn'      => '0.08',
         'Test::More'      => '0.88', # done_testing
@@ -69,6 +61,7 @@ my $build = Module::Build->subclass(
             },
         },
     },
+    meta_add => { no_index => { directory => [ 'utils' ] } },
 );
 
 if ( $build->y_n( "Run the long-running tests", 'n' ) ) {

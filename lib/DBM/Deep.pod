@@ -202,7 +202,7 @@ the wrong type is passed in.
 Alternately, you can create a DBM::Deep handle by using Perl's built-in
 tie() function. The object returned from tie() can be used to call methods,
 such as lock() and unlock(). (That object can be retrieved from the tied
-variable at any time using tied() - please see L<perltie> for more info.
+variable at any time using tied() - please see L<perltie> for more info.)
 
   my %hash;
   my $db = tie %hash, "DBM::Deep", "foo.db";
@@ -403,7 +403,7 @@ In addition to the I<tie()> interface, you can also use a standard OO interface
 to manipulate all aspects of DBM::Deep databases. Each type of object (hash or
 array) has its own methods, but both types share the following common methods:
 C<put()>, C<get()>, C<exists()>, C<delete()> and C<clear()>. C<fetch()> and
-C<store(> are aliases to C<put()> and C<get()>, respectively.
+C<store()> are aliases to C<put()> and C<get()>, respectively.
 
 =over
 
@@ -1084,6 +1084,11 @@ reading the data:
   $db->lock_exclusive;
   my %hash = %{ $db->{some_hash} };
   $db->unlock;
+
+As of version 1.0024, if you assign a stale reference to a location
+in the database, DBM::Deep will warn, if you have uninitialized warnings
+enabled, and treat the stale reference as C<undef>. An attempt to use a
+stale reference as an array or hash reference will cause an error.
 
 =head2 Large Arrays
 

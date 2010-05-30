@@ -26,6 +26,20 @@ use overload
     'bool'   => sub { undef },
     '""'     => sub { undef },
     '0+'     => sub { 0 },
+   ('cmp'    => 
+    '<=>'    => sub {
+                  return 0 if !defined $_[1] || !length $_[1];
+                  return $_[2] ? 1 : -1;
+                }
+   )[0,2,1,2], # same sub for both ops
+    '%{}'    => sub {
+                  require Carp;
+                  Carp::croak("Can't use a stale reference as a HASH");
+                },
+    '@{}'    => sub {
+                  require Carp;
+                  Carp::croak("Can't use a stale reference as an ARRAY");
+                },
     fallback => 1,
     nomethod => 'AUTOLOAD';
 
