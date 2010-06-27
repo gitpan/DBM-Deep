@@ -24,7 +24,7 @@ no_index:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 1.0025
+    version: 1.9999_01
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
   DBM::Deep::Engine:
@@ -79,7 +79,7 @@ requires:
   Digest::MD5: 1.00
   Fcntl: 0.01
   Scalar::Util: 1.14
-  perl: 5.006_000
+  perl: 5.008_000
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.0025
+version: 1.9999_01

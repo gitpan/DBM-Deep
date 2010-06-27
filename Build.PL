@@ -19,12 +19,23 @@ my $build = Module::Build->subclass(
 
             $self->SUPER::ACTION_test( @_ );
         }
+        sub ACTION_dist {
+            my $self = shift;
+            my $v = $self->dist_version;
+            system
+              $^X,
+             "-pi -le",
+              q"$line = $. if ?VERSION?; "
+                 . q"$_ = q<" . $v . q"> if $line && $. == $line+2",
+             "lib/DBM/Deep.pod";
+            $self->SUPER::ACTION_dist( @_ );
+        }
     ',
 )->new(
     module_name => 'DBM::Deep',
     license => 'perl',
     requires => {
-        'perl'              => '5.006_000',
+        'perl'              => '5.008_000',
         'Fcntl'             => '0.01',
         'Scalar::Util'      => '1.14',
         'Digest::MD5'       => '1.00',

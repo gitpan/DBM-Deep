@@ -1,5 +1,34 @@
 Revision history for DBM::Deep (ordered by revision number).
 
+1.9999_01 Jun 27 14:22:00 2010 PDT
+    (This is the first developer release for 2.0000.)
+    - THIS VERSION CHANGES THE FILE FORMAT.
+        - Databases from DBM::Deep 1.0003 and higher can still
+          be opened.
+        - Newly-created databases automatically use the version 2.x
+          format (numbered 4 internally), which version 1.x
+          cannot open.
+        - The optimize method, since it copies everything to a new
+          database, upgrades it.
+        - There is a new db_version method.
+    - Support for perl 5.6 has been dropped. We now require 5.8. 5.6
+      users can still use version 1.0025. If anyone really needs 5.6
+      support in version 2.x, we can add it back again, but would pre-
+      fer not to. Bug fixes may be back-ported to 1.002x if requested.
+    - The File back end now supports Unicode. This is only supported
+      for new databases. Old databases in the DBM::Deep 1.0003 format
+      will have to be upgraded for this to work.
+    - New external_refs mode, which allows objects retrieved from the
+      database to hang on to the corresponding database entries, keep-
+      ing them alive, even after all references to them from the data-
+      base itself have been deleted.
+    - Numeric comparison of DBM::Deep objects now works. Different
+      objects used to compare equal. And there were uninitial-
+      ized warnings.
+    - Deletions now work properly in the DBI back end. Deleting an
+      array or hash referenced by two keys in the database used to
+      be a no-op.
+
 1.0025 Jun 6 12:46:00 2010 PDT
     (This version is compatible with 1.0024)
     - Fixed t/39_singletons.t to work on Windows.

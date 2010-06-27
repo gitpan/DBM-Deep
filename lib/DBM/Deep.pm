@@ -1,18 +1,14 @@
 package DBM::Deep;
 
-use 5.006_000;
+use 5.008_000;
 
 use strict;
 use warnings FATAL => 'all';
 no warnings 'recursion';
 
-our $VERSION = q(1.0025);
+our $VERSION = q(1.9999_01);
 
 use Scalar::Util ();
-
-use overload
-    '""' => sub { overload::StrVal( $_[0] ) },
-    fallback => 1;
 
 use constant DEBUG => 0;
 
@@ -20,6 +16,11 @@ use DBM::Deep::Engine;
 
 sub TYPE_HASH   () { DBM::Deep::Engine->SIG_HASH  }
 sub TYPE_ARRAY  () { DBM::Deep::Engine->SIG_ARRAY }
+
+my %obj_cache; # In external_refs mode, all objects are registered here,
+               # and dealt with in the END block at the bottom.
+use constant HAVE_HUFH => scalar eval{ require Hash::Util::FieldHash };
+HAVE_HUFH and Hash::Util::FieldHash::fieldhash %obj_cache;
 
 # This is used in all the children of this class in their TIE<type> methods.
 sub _get_args {
@@ -113,6 +114,22 @@ sub _init {
         my $e = $@;
         eval { local $SIG{'__DIE__'}; $self->unlock; };
         die $e;
+    }
+
+    if(  $self->{engine}->{external_refs}
+     and my $sector = $self->{engine}->load_sector( $self->{base_offset} )
+    ) {
+        $sector->increment_refcount;
+
+        Scalar::Util::weaken( my $feeble_ref = $self );
+        $obj_cache{ 0+$self } = \$feeble_ref;
+
+        # Make sure this cache is not a memory hog
+        if(!HAVE_HUFH) {
+            for(keys %obj_cache) {
+                delete $obj_cache{$_} if not ${$obj_cache{$_}};
+            }
+        }
     }
 
     return $self;
@@ -379,6 +396,10 @@ sub supports {
     return $self->_engine->supports( @_ );
 }
 
+sub db_version {
+    shift->_get_self->_engine->db_version;
+}
+
 #XXX Migrate this to the engine, where it really belongs and go through some
 # API - stop poking in the innards of someone else..
 {
@@ -625,6 +646,35 @@ sub _warnif {
      warn $msg;
   }
  }
+}
+
+sub _free {
+ my $self = shift;
+ if(my $sector = $self->{engine}->load_sector( $self->{base_offset} )) {
+  $sector->free;
+ }
+}
+
+sub DESTROY {
+ my $self = shift;
+ my $alter_ego = $self->_get_self;
+ if( !$alter_ego  ||  $self != $alter_ego ) {
+  return; # Don’t run the destructor twice! (What follows only applies to
+ }        # the inner object, not the tie.)
+
+ # If the engine is gone, the END block has beaten us to it.
+ return if !$self->{engine}; 
+ if(  $self->{engine}->{external_refs} ) {
+  $self->_free;
+ }
+}
+
+# Relying on the destructor alone is problematic, as the order in which
+# objects are discarded is random in global destruction. So we do the
+# clean-up here before preemptively before global destruction.
+END {
+ defined $$_ and  $$_->_free, delete $$_->{engine}
+   for(values %obj_cache);
 }
 
 1;

@@ -1,6 +1,6 @@
 package DBM::Deep::Sector::File;
 
-use 5.006_000;
+use 5.008_000;
 
 use strict;
 use warnings FATAL => 'all';
@@ -85,7 +85,7 @@ sub load {
             offset => $offset,
         });
     }
-    elsif ( $type eq $engine->SIG_DATA ) {
+    elsif ( $type eq $engine->SIG_DATA || $type eq $engine->SIG_UNIDATA ) {
         return DBM::Deep::Sector::File::Scalar->new({
             engine => $engine,
             type   => $type,

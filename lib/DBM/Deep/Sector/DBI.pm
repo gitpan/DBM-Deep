@@ -1,6 +1,6 @@
 package DBM::Deep::Sector::DBI;
 
-use 5.006_000;
+use 5.008_000;
 
 use strict;
 use warnings FATAL => 'all';
@@ -27,7 +27,7 @@ sub load {
     my $self = shift;
     my ($engine, $offset, $type) = @_;
 
-    if ( $type eq 'refs' ) {
+    if ( !defined $type || $type eq 'refs' ) {
         return DBM::Deep::Sector::DBI::Reference->new({
             engine => $engine,
             offset => $offset,

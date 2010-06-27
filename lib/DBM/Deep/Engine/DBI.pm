@@ -1,6 +1,6 @@
 package DBM::Deep::Engine::DBI;
 
-use 5.006_000;
+use 5.008_000;
 
 use strict;
 use warnings FATAL => 'all';
@@ -23,6 +23,7 @@ sub new {
 
     my $self = bless {
         storage => undef,
+        external_refs => undef,
     }, $class;
 
     # Grab the parameters we want to use
@@ -354,6 +355,10 @@ sub supports {
     return if $feature eq 'transactions';
     return 1 if $feature eq 'singletons';
     return;
+}
+
+sub db_version {
+    return '1.0020'
 }
 
 sub clear {
