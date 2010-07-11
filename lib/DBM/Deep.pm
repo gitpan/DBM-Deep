@@ -6,9 +6,16 @@ use strict;
 use warnings FATAL => 'all';
 no warnings 'recursion';
 
-our $VERSION = q(1.9999_01);
+our $VERSION = q(1.9999_02);
 
 use Scalar::Util ();
+
+use overload
+   (
+    '""' =>
+    '0+' => sub { $_[0] },
+   )[0,2,1,2], # same sub for both
+    fallback => 1;
 
 use constant DEBUG => 0;
 
@@ -20,7 +27,7 @@ sub TYPE_ARRAY  () { DBM::Deep::Engine->SIG_ARRAY }
 my %obj_cache; # In external_refs mode, all objects are registered here,
                # and dealt with in the END block at the bottom.
 use constant HAVE_HUFH => scalar eval{ require Hash::Util::FieldHash };
-HAVE_HUFH and Hash::Util::FieldHash::fieldhash %obj_cache;
+HAVE_HUFH and Hash::Util::FieldHash::fieldhash(%obj_cache);
 
 # This is used in all the children of this class in their TIE<type> methods.
 sub _get_args {
