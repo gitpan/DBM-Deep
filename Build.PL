@@ -35,7 +35,7 @@ my $build = Module::Build->subclass(
     module_name => 'DBM::Deep',
     license => 'perl',
     requires => {
-        'perl'              => '5.008_000',
+        'perl'              => '5.008_004',
         'Fcntl'             => '0.01',
         'Scalar::Util'      => '1.14',
         'Digest::MD5'       => '1.00',
@@ -48,7 +48,6 @@ my $build = Module::Build->subclass(
         'Test::Warn'      => '0.08',
         'Test::More'      => '0.88', # done_testing
         'Test::Exception' => '0.21',
-        'IO::Scalar'      => '0.01',
     },
     create_makefile_pl => 'traditional',
     create_readme    =>  1,

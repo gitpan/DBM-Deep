@@ -1,12 +1,12 @@
 package DBM::Deep;
 
-use 5.008_000;
+use 5.008_004;
 
 use strict;
 use warnings FATAL => 'all';
 no warnings 'recursion';
 
-our $VERSION = q(1.9999_02);
+our $VERSION = q(2.0000);
 
 use Scalar::Util ();
 
@@ -129,7 +129,7 @@ sub _init {
         $sector->increment_refcount;
 
         Scalar::Util::weaken( my $feeble_ref = $self );
-        $obj_cache{ 0+$self } = \$feeble_ref;
+        $obj_cache{ $self } = \$feeble_ref;
 
         # Make sure this cache is not a memory hog
         if(!HAVE_HUFH) {
