@@ -137,4 +137,22 @@ use_ok( 'DBM::Deep' );
         )1\.0003 to \d/, "Fail if opening a file version 1";
 }
 
+{
+    # Make sure we get the right file name in the error message.
+    throws_ok {
+        eval "#line 1 gneen\nDBM::Deep->new( 't/etc/db-0-99_04' )"
+	 or die $@
+    } qr/ at gneen line 1\b/, "File name in error message is correct";
+}
+
+{
+    # Too many transactions.
+    my ($fh, $filename) = new_fh();
+
+    throws_ok {
+        new DBM::Deep $filename =>-> begin_work;
+    } qr/^DBM::Deep: Cannot allocate transaction ID at/,
+     "Error when starting transaction in database with only 1 txn";
+}
+
 done_testing;

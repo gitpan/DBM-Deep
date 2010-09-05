@@ -6,7 +6,7 @@ use strict;
 use warnings FATAL => 'all';
 no warnings 'recursion';
 
-our $VERSION = q(2.0001);
+our $VERSION = q(2.0002);
 
 use Scalar::Util ();
 
@@ -504,7 +504,7 @@ sub _throw_error {
         my @caller = caller( ++$n );
         next if $caller[0] =~ m/^DBM::Deep/;
 
-        die "DBM::Deep: $_[1] at $0 line $caller[2]\n";
+        die "DBM::Deep: $_[1] at $caller[1] line $caller[2]\n";
     }
 }
 
