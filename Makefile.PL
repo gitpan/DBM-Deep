@@ -12,6 +12,7 @@ WriteMakefile
                            'File::Temp' => '0.01',
                            'Pod::Usage' => '1.3',
                            'Scalar::Util' => '1.14',
+                           'Test::Builder' => '0.13',
                            'Test::Deep' => '0.095',
                            'Test::Exception' => '0.21',
                            'Test::More' => '0.88',
