@@ -24,7 +24,7 @@ no_index:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 2.0006
+    version: 2.0007
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
   DBM::Deep::Engine:
@@ -82,4 +82,4 @@ requires:
   perl: 5.008_004
 resources:
   license: http://dev.perl.org/licenses/
-version: 2.0006
+version: 2.0007
