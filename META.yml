@@ -1,6 +1,7 @@
 ---
 abstract: 'A pure perl multi-level hash/array DBM that supports transactions'
-author: []
+author:
+  - unknown
 build_requires:
   File::Path: 0.01
   File::Temp: 0.01
@@ -10,8 +11,9 @@ build_requires:
   Test::More: 0.88
   Test::Warn: 0.08
 configure_requires:
-  Module::Build: 0.36
-generated_by: 'Module::Build version 0.3603'
+  Module::Build: 0.40
+dynamic_config: 1
+generated_by: 'Module::Build version 0.4005, CPAN::Meta::Converter version 2.131560'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -23,7 +25,7 @@ no_index:
 provides:
   DBM::Deep:
     file: lib/DBM/Deep.pm
-    version: 2.0008
+    version: 2.0009
   DBM::Deep::Array:
     file: lib/DBM/Deep/Array.pm
   DBM::Deep::Engine:
@@ -81,4 +83,4 @@ requires:
   perl: 5.008_004
 resources:
   license: http://dev.perl.org/licenses/
-version: 2.0008
+version: 2.0009
