@@ -4,7 +4,7 @@ DBM::Deep - A pure perl multi-level hash/array DBM that supports transactions
 
 =head1 VERSION
 
-2.0009
+2.0010
 
 =head1 SYNOPSIS
 
@@ -51,7 +51,7 @@ Windows.
 
 B<NOTE>: 2.0000 introduces Unicode support in the File back end. This
 necessitates a change in the file format. The version 1.0003 format is
-still supported, though, so we have added a L</db_version|db_version()>
+still supported, though, so we have added a L<db_version()|/db_version>
 method. If you are using a database in the old format, you will have to
 upgrade it to get Unicode support.
 
@@ -910,7 +910,7 @@ you can call the C<_fh()> method, which returns the handle:
 
   my $fh = $db->_fh();
 
-This method can be called on the root level of the datbase, or any child
+This method can be called on the root level of the database, or any child
 hashes or arrays. All levels share a I<root> structure, which contains things
 like the filehandle, a reference counter, and all the options specified
 when you created the object. You can get access to this file object by
@@ -963,7 +963,7 @@ a future release by adding singleton support.
 
 =head1 TRANSACTIONS
 
-As of 1.0000, DBM::Deep hass ACID transactions. Every DBM::Deep object is completely
+As of 1.0000, DBM::Deep has ACID transactions. Every DBM::Deep object is completely
 transaction-ready - it is not an option you have to turn on. You do have to
 specify how many transactions may run simultaneously (q.v. L</num_txns>).
 
@@ -1261,7 +1261,7 @@ Originally written by Joseph Huckaby, L<jhuckaby@cpan.org>
 =head1 SPONSORS
 
 Stonehenge Consulting (L<http://www.stonehenge.com/>) sponsored the
-developement of transactions and freespace management, leading to the 1.0000
+development of transactions and freespace management, leading to the 1.0000
 release. A great debt of gratitude goes out to them for their continuing
 leadership in and support of the Perl community.
 
@@ -1276,6 +1276,8 @@ The following have contributed greatly to make DBM::Deep what it is today:
 =item * Dan Golden and others at YAPC::NA 2006 for helping me design through transactions.
 
 =item * James Stanley for bug fix
+
+=item * David Steinbrunner for fixing typos and adding repository cpan metadata
 
 =back
 
