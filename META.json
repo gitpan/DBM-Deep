@@ -1,10 +1,8 @@
 {
    "abstract" : "A pure perl multi-level hash/array DBM that supports transactions",
-   "author" : [
-      "unknown"
-   ],
+   "author" : [],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4005, CPAN::Meta::Converter version 2.131560",
+   "generated_by" : "Module::Build version 0.4203",
    "license" : [
       "perl_5"
    ],
@@ -32,7 +30,7 @@
       },
       "configure" : {
          "requires" : {
-            "Module::Build" : "0.40"
+            "Module::Build" : "0.42"
          }
       },
       "runtime" : {
@@ -47,7 +45,7 @@
    "provides" : {
       "DBM::Deep" : {
          "file" : "lib/DBM/Deep.pm",
-         "version" : "2.0010"
+         "version" : "2.0011"
       },
       "DBM::Deep::Array" : {
          "file" : "lib/DBM/Deep/Array.pm"
@@ -134,5 +132,5 @@
          "url" : "https://github.com/robkinyon/dbm-deep"
       }
    },
-   "version" : "2.0010"
+   "version" : "2.0011"
 }
